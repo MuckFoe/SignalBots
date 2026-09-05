@@ -1,0 +1,46 @@
+services:
+
+  chore-bot:
+
+    build:
+
+      context: .
+
+      dockerfile: Dockerfile
+
+    container_name: chore-bot
+
+    restart: unless-stopped
+
+    env_file:
+
+      - .env
+
+    environment:
+
+      - SIGNAL_API_URL=http://signal-api:8080
+
+      - BOT_HOST=0.0.0.0
+
+      - BOT_PORT=5000
+
+      - DATABASE_PATH=/data/chores.db
+
+      - BOT_INSTANCE_ID=default
+
+      - BOT_INSTANCE_NAME=House Chore Bot
+
+    ports:
+
+      - "127.0.0.1:5000:5000"
+
+    volumes:
+
+      - bot-data:/data
+
+
+
+volumes:
+
+  bot-data:
+

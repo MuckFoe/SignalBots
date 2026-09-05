@@ -1,0 +1,146 @@
+services:
+  signal-api:
+    image: bbernhard/signal-cli-rest-api:latest
+    container_name: signal-api
+    restart: unless-stopped
+    environment:
+      - MODE=json-rpc
+      - RECEIVE_WEBHOOK_URL=http://bot-router:5100/webhook
+    volumes:
+      - signal-cli-config:/home/.local/share/signal-cli
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  bot-router:
+    build:
+      context: ./HouseBotRouter
+      dockerfile: Dockerfile
+    container_name: bot-router
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - SIGNAL_API_URL=http://signal-api:8080
+      - CHORE_BOT_URL=http://chore-bot:5000
+      - RENTAL_BOT_URL=http://rental-bot:5001
+      - EXPENSE_BOT_URL=http://expense-bot:5002
+      - GROCERY_BOT_URL=http://grocery-bot:5003
+      - BOT_HOST=0.0.0.0
+      - BOT_PORT=5100
+      - DATABASE_PATH=/data/router.db
+    volumes:
+      - router-data:/data
+    ports:
+      - "127.0.0.1:5100:5100"
+    depends_on:
+      - chore-bot
+      - rental-bot
+      - expense-bot
+      - grocery-bot
+      - signal-api
+
+  chore-bot:
+    build:
+      context: ./HouseChoreTracker
+      dockerfile: Dockerfile
+    container_name: chore-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - SIGNAL_API_URL=http://signal-api:8080
+      - BOT_HOST=0.0.0.0
+      - BOT_PORT=5000
+      - DATABASE_PATH=/data/chores.db
+      - BOT_INSTANCE_ID=default
+      - BOT_INSTANCE_NAME=House Chore Bot
+    volumes:
+      - bot-data:/data
+    ports:
+      - "127.0.0.1:5000:5000"
+    depends_on:
+      - signal-api
+
+  rental-bot:
+    build:
+      context: ./HouseRentalTracker
+      dockerfile: Dockerfile
+    container_name: rental-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - SIGNAL_API_URL=http://signal-api:8080
+      - BOT_HOST=0.0.0.0
+      - BOT_PORT=5001
+      - DATABASE_PATH=/data/rentals.db
+      - BOT_INSTANCE_ID=default
+      - BOT_INSTANCE_NAME=Rental Tracker Bot
+      - POLL_TIMES=08:00,20:00
+    volumes:
+      - rental-bot-data:/data
+    ports:
+      - "127.0.0.1:5001:5001"
+    depends_on:
+      - signal-api
+
+  expense-bot:
+    build:
+      context: ./HouseExpenseTracker
+      dockerfile: Dockerfile
+    container_name: expense-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - SIGNAL_API_URL=http://signal-api:8080
+      - BOT_HOST=0.0.0.0
+      - BOT_PORT=5002
+      - DATABASE_PATH=/data/expenses.db
+      - BOT_INSTANCE_ID=default
+      - BOT_INSTANCE_NAME=Expense Split Bot
+    volumes:
+      - expense-bot-data:/data
+    ports:
+      - "127.0.0.1:5002:5002"
+    depends_on:
+      - signal-api
+
+  grocery-bot:
+    build:
+      context: ./HouseGroceryTracker
+      dockerfile: Dockerfile
+    container_name: grocery-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - SIGNAL_API_URL=http://signal-api:8080
+      - BOT_HOST=0.0.0.0
+      - BOT_PORT=5003
+      - DATABASE_PATH=/data/grocery.db
+      - GROCERY_IMAGE_DIR=/data/images
+      - BOT_INSTANCE_ID=default
+      - BOT_INSTANCE_NAME=Grocery List Bot
+    volumes:
+      - grocery-bot-data:/data
+    ports:
+      - "127.0.0.1:5003:5003"
+    depends_on:
+      - signal-api
+
+volumes:
+  signal-cli-config:
+    name: housechoretracker_signal-cli-config
+    external: true
+  router-data:
+    name: projecthub_router-data
+  bot-data:
+    name: housechoretracker_bot-data
+    external: true
+  rental-bot-data:
+    name: projecthub_rental-bot-data
+  expense-bot-data:
+    name: projecthub_expense-bot-data
+  grocery-bot-data:
+    name: projecthub_grocery-bot-data

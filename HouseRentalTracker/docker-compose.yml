@@ -1,0 +1,24 @@
+services:
+  rental-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rental-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - SIGNAL_API_URL=http://signal-api:8080
+      - BOT_HOST=0.0.0.0
+      - BOT_PORT=5001
+      - DATABASE_PATH=/data/rentals.db
+      - BOT_INSTANCE_ID=default
+      - BOT_INSTANCE_NAME=Rental Tracker Bot
+      - POLL_TIMES=08:00,20:00
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - rental-bot-data:/data
+
+volumes:
+  rental-bot-data:

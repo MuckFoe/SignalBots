@@ -1,0 +1,23 @@
+services:
+  expense-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: expense-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - SIGNAL_API_URL=http://signal-api:8080
+      - BOT_HOST=0.0.0.0
+      - BOT_PORT=5002
+      - DATABASE_PATH=/data/expenses.db
+      - BOT_INSTANCE_ID=default
+      - BOT_INSTANCE_NAME=Expense Split Bot
+    ports:
+      - "127.0.0.1:5002:5002"
+    volumes:
+      - expense-bot-data:/data
+
+volumes:
+  expense-bot-data:

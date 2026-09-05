@@ -1,0 +1,38 @@
+# Real environment files. Only .env.example is tracked.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.bak-*
+
+# Grocery bot attachment storage
+**/grocery_images/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Keys and certificates
+*.pem
+*.key
+id_rsa*
+known_hosts
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
