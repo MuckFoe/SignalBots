@@ -17,6 +17,7 @@ from group_router import (
     parse_job_and_language,
 )
 from signal_client import SignalClient
+from whatsapp_client import WhatsAppClient, is_whatsapp_target
 
 
 load_dotenv()
@@ -28,15 +29,17 @@ SIGNAL_API_URL = os.getenv("SIGNAL_API_URL", "http://localhost:8080").strip()
 CHORE_BOT_URL = os.getenv("CHORE_BOT_URL", "http://chore-bot:5000").strip()
 RENTAL_BOT_URL = os.getenv("RENTAL_BOT_URL", "http://rental-bot:5001").strip()
 EXPENSE_BOT_URL = os.getenv("EXPENSE_BOT_URL", "http://expense-bot:5002").strip()
-GROCERY_BOT_URL = os.getenv("GROCERY_BOT_URL", "http://grocery-bot:5003").strip()
+WHATSAPP_API_URL = os.getenv("WHATSAPP_API_URL", "http://whatsapp-api:3000").strip()
+WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY", "").strip()
 DATABASE_PATH = os.getenv("DATABASE_PATH", "/data/router.db").strip()
 INCOMING_MAX_AGE_SECONDS = int(os.getenv("INCOMING_MAX_AGE_SECONDS", "300").strip())
 
 if not SIGNAL_BOT_NUMBER:
     raise RuntimeError("SIGNAL_BOT_NUMBER is required in environment variables.")
 
-router = GroupRouter(DATABASE_PATH, CHORE_BOT_URL, RENTAL_BOT_URL, EXPENSE_BOT_URL, GROCERY_BOT_URL)
+router = GroupRouter(DATABASE_PATH, CHORE_BOT_URL, RENTAL_BOT_URL, EXPENSE_BOT_URL)
 signal = SignalClient(SIGNAL_API_URL, SIGNAL_BOT_NUMBER)
+whatsapp = WhatsAppClient(WHATSAPP_API_URL, WHATSAPP_API_KEY)
 outbound_messages: queue.Queue[Dict[str, str]] = queue.Queue()
 seen_messages: dict[str, float] = {}
 seen_messages_lock = threading.Lock()
@@ -92,7 +95,9 @@ def _run_signal_send_loop() -> None:
         item = outbound_messages.get()
         try:
             attachments = item.get("attachments") or None
-            if item["target_type"] == "group":
+            if is_whatsapp_target(item["target"]):
+                whatsapp.send_message(item["target"], item["message"], attachments)
+            elif item["target_type"] == "group":
                 signal.send_group_message(item["target"], item["message"], attachments)
             else:
                 signal.send_message(item["target"], item["message"], attachments)
@@ -128,6 +133,36 @@ def _extract_message_payload(body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "group_id": group_id,
         "timestamp": str(timestamp),
         "attachments": attachments,
+    }
+
+
+def _extract_whatsapp_payload(body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if body.get("event") != "message":
+        return None
+    data = body.get("payload", {}) or {}
+    if data.get("fromMe"):
+        return None
+    chat_id = data.get("from") or ""
+    message = data.get("body") or ""
+    if not message:
+        return None
+    if chat_id.endswith("@g.us"):
+        source = data.get("participant")
+        group_id = chat_id
+    elif chat_id.endswith(("@c.us", "@lid")):
+        source = chat_id
+        group_id = None
+    else:
+        # status@broadcast, channels (@newsletter) and the like are not chats.
+        return None
+    if not source:
+        return None
+    return {
+        "source": source,
+        "message": message,
+        "group_id": group_id,
+        "timestamp": str(data.get("timestamp") or ""),
+        "attachments": [],
     }
 
 
@@ -188,7 +223,16 @@ def health() -> tuple[dict, int]:
 @app.post("/webhook")
 def webhook() -> tuple[dict, int]:
     body = request.get_json(silent=True) or {}
-    payload = _extract_message_payload(body)
+    return _process_incoming(_extract_message_payload(body))
+
+
+@app.post("/webhook/whatsapp")
+def webhook_whatsapp() -> tuple[dict, int]:
+    body = request.get_json(silent=True) or {}
+    return _process_incoming(_extract_whatsapp_payload(body))
+
+
+def _process_incoming(payload: Optional[Dict[str, Any]]) -> tuple[dict, int]:
     if payload is None:
         return {"status": "ignored"}, 200
 

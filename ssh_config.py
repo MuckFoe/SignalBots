@@ -51,7 +51,7 @@ PASSWORD = _require("SSH_PASSWORD")
 # Falls back to the login password, which is how the stack is set up today.
 ROOT_PASSWORD = os.environ.get("SSH_ROOT_PASSWORD", "").strip() or PASSWORD
 
-REMOTE_ROOT = os.environ.get("REMOTE_ROOT", "/home/signalbot/ProjectHub")
+REMOTE_ROOT = os.environ.get("REMOTE_ROOT", "/home/signalbot/bots")
 
 # Sender identity used by the smoke-test payloads in check_bots.py.
 TEST_SENDER = os.environ.get("TEST_SENDER", "+10000000000")

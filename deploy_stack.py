@@ -21,6 +21,7 @@ PROJECTS = {
         "Dockerfile",
         "requirements.txt",
         "signal_client.py",
+        "whatsapp_client.py",
     ],
     "HouseRentalTracker": [
         "app.py",
@@ -39,11 +40,13 @@ PROJECTS = {
         "Dockerfile",
         "requirements.txt",
         "signal_client.py",
+        "whatsapp_client.py",
     ],
     "HouseBotRouter": [
         "app.py",
         "group_router.py",
         "signal_client.py",
+        "whatsapp_client.py",
         "Dockerfile",
         "requirements.txt",
     ],
@@ -62,19 +65,7 @@ PROJECTS = {
         "Dockerfile",
         "requirements.txt",
         "signal_client.py",
-    ],
-    "HouseGroceryTracker": [
-        "app.py",
-        "commands.py",
-        "storage.py",
-        "categories.py",
-        "item_parse.py",
-        "image_recognition.py",
-        "dialogue_utils.py",
-        "bot_registry.py",
-        "Dockerfile",
-        "requirements.txt",
-        "signal_client.py",
+        "whatsapp_client.py",
     ],
 }
 
@@ -127,7 +118,6 @@ def ensure_env(ssh: paramiko.SSHClient) -> None:
         ("CHORE_BOT_URL", "http://chore-bot:5000"),
         ("RENTAL_BOT_URL", "http://rental-bot:5001"),
         ("EXPENSE_BOT_URL", "http://expense-bot:5002"),
-        ("GROCERY_BOT_URL", "http://grocery-bot:5003"),
         ("BOT_PORT", "5100"),
         ("DATABASE_PATH", "/data/router.db"),
     ]:
@@ -135,6 +125,12 @@ def ensure_env(ssh: paramiko.SSHClient) -> None:
             ssh,
             f"grep -q '^{key}=' {env_path} 2>/dev/null || echo '{key}={value}' >> {env_path}",
         )
+    # whatsapp-api refuses to start without a key; generate one on first deploy.
+    run(
+        ssh,
+        f"grep -q '^WHATSAPP_API_KEY=' {env_path} 2>/dev/null || "
+        f"echo \"WHATSAPP_API_KEY=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \\n')\" >> {env_path}",
+    )
 
 
 def main() -> None:
@@ -185,7 +181,6 @@ def main() -> None:
         ("chore", "http://127.0.0.1:5000/health"),
         ("rental", "http://127.0.0.1:5001/health"),
         ("expense", "http://127.0.0.1:5002/health"),
-        ("grocery", "http://127.0.0.1:5003/health"),
     ]:
         _, health_out, _ = run(ssh, f"curl -s -o /dev/null -w '%{{http_code}}' {url}")
         print(f"health {label}", health_out.strip())
@@ -206,7 +201,6 @@ if __name__ == "__main__":
             ("chore", "curl -s http://127.0.0.1:5000/health"),
             ("rental", "curl -s http://127.0.0.1:5001/health"),
             ("expense", "curl -s http://127.0.0.1:5002/health"),
-            ("grocery", "curl -s http://127.0.0.1:5003/health"),
             ("router-logs", SU + "'docker logs bot-router --tail 15'"),
             ("chore-logs", SU + "'docker logs chore-bot --tail 15'"),
         ]:

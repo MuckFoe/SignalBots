@@ -12,6 +12,7 @@ from bot_registry import runtime_bot_id
 from commands import handle_command
 from signal_client import SignalClient
 from storage import Storage
+from whatsapp_client import WhatsAppClient, is_whatsapp_target
 
 
 load_dotenv()
@@ -20,6 +21,8 @@ app = Flask(__name__)
 
 SIGNAL_BOT_NUMBER = os.getenv("SIGNAL_BOT_NUMBER", "").strip()
 SIGNAL_API_URL = os.getenv("SIGNAL_API_URL", "http://localhost:8080").strip()
+WHATSAPP_API_URL = os.getenv("WHATSAPP_API_URL", "http://whatsapp-api:3000").strip()
+WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY", "").strip()
 DATABASE_PATH = os.getenv("DATABASE_PATH", "expenses.db").strip()
 
 if not SIGNAL_BOT_NUMBER:
@@ -27,6 +30,7 @@ if not SIGNAL_BOT_NUMBER:
 
 storage = Storage(DATABASE_PATH)
 signal = SignalClient(SIGNAL_API_URL, SIGNAL_BOT_NUMBER)
+whatsapp = WhatsAppClient(WHATSAPP_API_URL, WHATSAPP_API_KEY)
 outbound_messages: queue.Queue[Dict[str, str]] = queue.Queue()
 
 
@@ -44,7 +48,9 @@ def _run_signal_send_loop() -> None:
     while True:
         item = outbound_messages.get()
         try:
-            if item["target_type"] == "group":
+            if is_whatsapp_target(item["target"]):
+                whatsapp.send_message(item["target"], item["message"])
+            elif item["target_type"] == "group":
                 signal.send_group_message(item["target"], item["message"])
             else:
                 signal.send_message(item["target"], item["message"])

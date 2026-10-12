@@ -7,6 +7,14 @@ what is actually wired up, so a later session does not have to re-derive it.
 Where the README disagrees with the code, the disagreement is listed in
 `TASKS.md` §6 rather than resolved here.
 
+> **Update, same day (2026-09-06):** `grocery-bot` was decommissioned and the
+> `projecthub_`/`ProjectHub` naming prefix was dropped (see `TASKS.md`). The
+> topology, routing, and deployment sections below describe the state *before*
+> that change — six services, `projecthub_*` volume names, deploy root
+> `/home/signalbot/ProjectHub` — since this file is a point-in-time survey,
+> not a living doc. Treat the README as current for service count and volume
+> names going forward.
+
 ---
 
 ## Topology

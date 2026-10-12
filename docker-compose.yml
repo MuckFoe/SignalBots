@@ -11,6 +11,22 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
+  whatsapp-api:
+    image: devlikeapro/waha:latest
+    container_name: whatsapp-api
+    restart: unless-stopped
+    environment:
+      - WAHA_API_KEY=${WHATSAPP_API_KEY:?set WHATSAPP_API_KEY in .env}
+      - WAHA_DASHBOARD_USERNAME=admin
+      - WAHA_DASHBOARD_PASSWORD=${WHATSAPP_API_KEY}
+      - WHATSAPP_START_SESSION=default
+      - WHATSAPP_HOOK_URL=http://bot-router:5100/webhook/whatsapp
+      - WHATSAPP_HOOK_EVENTS=message
+    volumes:
+      - whatsapp-sessions:/app/.sessions
+    ports:
+      - "127.0.0.1:3000:3000"
+
   bot-router:
     build:
       context: ./HouseBotRouter
@@ -24,7 +40,6 @@ services:
       - CHORE_BOT_URL=http://chore-bot:5000
       - RENTAL_BOT_URL=http://rental-bot:5001
       - EXPENSE_BOT_URL=http://expense-bot:5002
-      - GROCERY_BOT_URL=http://grocery-bot:5003
       - BOT_HOST=0.0.0.0
       - BOT_PORT=5100
       - DATABASE_PATH=/data/router.db
@@ -36,8 +51,8 @@ services:
       - chore-bot
       - rental-bot
       - expense-bot
-      - grocery-bot
       - signal-api
+      - whatsapp-api
 
   chore-bot:
     build:
@@ -106,41 +121,18 @@ services:
     depends_on:
       - signal-api
 
-  grocery-bot:
-    build:
-      context: ./HouseGroceryTracker
-      dockerfile: Dockerfile
-    container_name: grocery-bot
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - SIGNAL_API_URL=http://signal-api:8080
-      - BOT_HOST=0.0.0.0
-      - BOT_PORT=5003
-      - DATABASE_PATH=/data/grocery.db
-      - GROCERY_IMAGE_DIR=/data/images
-      - BOT_INSTANCE_ID=default
-      - BOT_INSTANCE_NAME=Grocery List Bot
-    volumes:
-      - grocery-bot-data:/data
-    ports:
-      - "127.0.0.1:5003:5003"
-    depends_on:
-      - signal-api
-
 volumes:
   signal-cli-config:
     name: housechoretracker_signal-cli-config
     external: true
+  whatsapp-sessions:
+    name: whatsapp-sessions
   router-data:
-    name: projecthub_router-data
+    name: router-data
   bot-data:
     name: housechoretracker_bot-data
     external: true
   rental-bot-data:
-    name: projecthub_rental-bot-data
+    name: rental-bot-data
   expense-bot-data:
-    name: projecthub_expense-bot-data
-  grocery-bot-data:
-    name: projecthub_grocery-bot-data
+    name: expense-bot-data

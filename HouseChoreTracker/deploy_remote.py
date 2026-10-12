@@ -1,4 +1,4 @@
-"""Deploy the full bot stack (router + chore + rental). Run from ProjectHub root instead."""
+"""Deploy the full bot stack (router + chore + rental). Run from the repo root instead."""
 
 import os
 import runpy

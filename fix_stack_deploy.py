@@ -27,7 +27,7 @@ def main() -> None:
         ),
         (
             "up_stack",
-            SU + "'cd /home/signalbot/ProjectHub && docker compose up -d'",
+            SU + "'cd /home/signalbot/bots && docker compose up -d'",
         ),
         (
             "ps",

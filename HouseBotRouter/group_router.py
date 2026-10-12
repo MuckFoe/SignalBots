@@ -14,7 +14,7 @@ import requests
 
 
 
-Job = Literal["chores", "rentals", "expenses", "grocery"]
+Job = Literal["chores", "rentals", "expenses"]
 
 
 
@@ -34,8 +34,6 @@ class GroupRouter:
 
         expense_bot_url: str,
 
-        grocery_bot_url: str,
-
     ) -> None:
 
         self.db_path = db_path
@@ -47,8 +45,6 @@ class GroupRouter:
             "rentals": rental_bot_url.rstrip("/"),
 
             "expenses": expense_bot_url.rstrip("/"),
-
-            "grocery": grocery_bot_url.rstrip("/"),
 
         }
 
@@ -170,7 +166,7 @@ class GroupRouter:
 
             return explicit
 
-        for job in ("chores", "rentals", "expenses", "grocery"):
+        for job in ("chores", "rentals", "expenses"):
 
             if self._scope_has_admins(self.bot_urls[job], scope_id):
 
@@ -244,11 +240,11 @@ JOB_TEXT = {
 
         "🤖 What should this chat do?\n"
 
-        "Reply: chores · rentals · expenses · grocery\n"
+        "Reply: chores · rentals · expenses\n"
 
-        "(aliases: haus · ferien · tricount · einkauf)\n"
+        "(aliases: haus · ferien · tricount)\n"
 
-        "💡 Tip: grocery en or einkauf deutsch sets language too."
+        "💡 Tip: chores en or haus deutsch sets language too."
 
     ),
 
@@ -256,11 +252,11 @@ JOB_TEXT = {
 
         "🤖 Was soll dieser Chat machen?\n"
 
-        "Antworte: chores · rentals · expenses · grocery\n"
+        "Antworte: chores · rentals · expenses\n"
 
-        "(Kürzel: haus · ferien · tricount · einkauf)\n"
+        "(Kürzel: haus · ferien · tricount)\n"
 
-        "💡 Tipp: grocery en oder einkauf deutsch wählt auch die Sprache."
+        "💡 Tipp: chores en oder haus deutsch wählt auch die Sprache."
 
     ),
 
@@ -291,26 +287,6 @@ _EXPENSE_ALIASES = {
     "rechnungen",
 
     "kosten teilen",
-
-}
-
-_GROCERY_ALIASES = {
-
-    "grocery",
-
-    "groceries",
-
-    "shopping",
-
-    "einkauf",
-
-    "einkaufsliste",
-
-    "einkaufen",
-
-    "lebensmittel",
-
-    "supermarkt",
 
 }
 
@@ -347,10 +323,6 @@ def _parse_job_token(token: str) -> Job | None:
     if token in _EXPENSE_ALIASES:
 
         return "expenses"
-
-    if token in _GROCERY_ALIASES:
-
-        return "grocery"
 
     return None
 
@@ -451,14 +423,6 @@ JOB_SET_ACK = {
         "en": "💸 Expense split bot. Choose language: language en or sprache deutsch",
 
         "de": "💸 Ausgaben-Bot. Sprache wählen: language en oder sprache deutsch",
-
-    },
-
-    "grocery": {
-
-        "en": "🛒 Grocery list bot. Choose language: language en or sprache deutsch",
-
-        "de": "🛒 Einkaufslisten-Bot. Sprache wählen: language en oder sprache deutsch",
 
     },
 
