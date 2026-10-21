@@ -4,8 +4,10 @@
 
 ### For the groups
 
-Sent to every set-up group, in its language and for its bot. The blocks below
-are the exact messages; `broadcast_changelog.py` sends them.
+Sent to every set-up group, in its language. Each group only hears about
+changes to its own bot; platform-wide changes (WhatsApp, group moves) are
+not announced here. The blocks below are the exact messages;
+`broadcast_changelog.py` sends them.
 
 ```chores-de
 📢 Neuigkeiten vom Haushalts-Bot
@@ -16,7 +18,7 @@ are the exact messages; `broadcast_changelog.py` sends them.
 
 🕐 Uhrzeiten bei Erledigungen und in der Statistik stimmen jetzt mit eurer Ortszeit überein – vorher waren sie um 2 Stunden verschoben.
 
-📦 Neu: Umzug nach WhatsApp. Ein Admin schreibt umzug whatsapp, und alle Aufgaben samt Verlauf ziehen in eine WhatsApp-Gruppe mit (zurück geht es genauso). Mehr dazu: anleitung 9
+📊 admin statistik zeigt wieder die Statistik der Gruppe an.
 
 Alle Befehle: hilfe
 ```
@@ -30,7 +32,7 @@ Alle Befehle: hilfe
 
 🕐 Times for completed chores and in the stats now match your local time – before, they were off by 2 hours.
 
-📦 New: moving to WhatsApp. An admin sends move whatsapp and all chores and their history move to a WhatsApp group (and back the same way). More: tutorial 9
+📊 admin stats shows the group's statistics again.
 
 All commands: help
 ```
@@ -40,10 +42,6 @@ All commands: help
 
 💬 Alle Texte sind überarbeitet: verständlicher, und wer nur einen Befehl schreibt (z.B. entfernen), bekommt eine kurze Erklärung dazu.
 
-📦 Neu: Umzug nach WhatsApp. Ein Admin schreibt umzug whatsapp, und alle beobachteten Unterkünfte ziehen in eine WhatsApp-Gruppe mit.
-
-🏠 Noch keine Unterkunft eingetragen? Schick mir einfach den Link: hinzufügen <Link>
-
 Alle Befehle: hilfe
 ```
 
@@ -52,9 +50,7 @@ Alle Befehle: hilfe
 
 💬 All messages have been rewritten: clearer, and sending just a command (e.g. remove) now gets you a short explanation.
 
-📦 New: moving to WhatsApp. An admin sends move whatsapp and all watched rentals move to a WhatsApp group.
-
-🏠 Not watching a rental yet? Just send me the link: add <link>
+🌐 add website works now (it was mistaken for adding a rental link).
 
 All commands: help
 ```
@@ -66,8 +62,6 @@ All commands: help
 
 💬 Alle Texte sind überarbeitet: verständlicher, und wer nur einen Befehl schreibt (z.B. ausgegeben), bekommt eine kurze Erklärung dazu.
 
-📦 Neu: Umzug nach WhatsApp. Ein Admin schreibt umzug whatsapp, und alle Ausgaben samt Bilanz ziehen in eine WhatsApp-Gruppe mit.
-
 Alle Befehle: hilfe
 ```
 
@@ -77,8 +71,6 @@ Alle Befehle: hilfe
 🛠️ Adding an expense step by step (add) works again – before, it stopped after the amount. balances chart works now too.
 
 💬 All messages have been rewritten: clearer, and sending just a command (e.g. spent) now gets you a short explanation.
-
-📦 New: moving to WhatsApp. An admin sends move whatsapp and all expenses and balances move to a WhatsApp group.
 
 All commands: help
 ```
