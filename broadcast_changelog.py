@@ -34,10 +34,13 @@ for scope_id, language in c.execute("SELECT scope_id, language FROM chat_setting
 
 def latest_messages() -> dict[str, str]:
     text = Path(__file__).with_name("CHANGELOG.md").read_text(encoding="utf-8")
-    messages: dict[str, str] = {}
-    for tag, body in re.findall(r"```([a-z]+-[a-z]{2})\n(.*?)\n```", text, flags=re.S):
-        messages.setdefault(tag, body.strip())
-    return messages
+    # Only the newest "## " release: a bot without news there gets nothing,
+    # rather than an older release's message a second time.
+    latest = re.split(r"(?m)^## ", text)[1]
+    return {
+        tag: body.strip()
+        for tag, body in re.findall(r"```([a-z]+-[a-z]{2})\n(.*?)\n```", latest, flags=re.S)
+    }
 
 
 def remote_python(ssh: paramiko.SSHClient, container: str, source: str) -> str:

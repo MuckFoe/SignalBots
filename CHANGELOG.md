@@ -1,5 +1,85 @@
 # Changelog
 
+## 2026-10-21 – WhatsApp
+
+### For the groups
+
+The bots are now reachable on WhatsApp too, and a group can move between
+Signal and WhatsApp with its data. Each group's message names what moves
+for its bot.
+
+```chores-de
+📱 Den Haushalts-Bot gibt es jetzt auch auf WhatsApp!
+
+Lieber WhatsApp statt Signal? So zieht diese Gruppe um:
+1. Ein Admin schreibt hier: umzug whatsapp
+2. Erstellt eine WhatsApp-Gruppe und fügt den Bot hinzu: +49 1520 6685988
+3. Schickt dort den Code, den der Bot hier nennt: umzug <Code>
+4. Jede Person schreibt in der neuen Gruppe einmal: ich bin <Name>
+
+Alle Aufgaben, der Verlauf und die Statistik ziehen mit um. Zurück zu Signal geht es genauso mit: umzug signal
+Mehr dazu: anleitung 9
+```
+
+```chores-en
+📱 The chore bot is now on WhatsApp too!
+
+Prefer WhatsApp over Signal? This is how the group moves:
+1. An admin writes here: move whatsapp
+2. Create a WhatsApp group and add the bot: +49 1520 6685988
+3. Send the code the bot gives you here, in the new group: move <code>
+4. Everyone writes once in the new group: i am <name>
+
+All chores, their history and the stats move along. Moving back to Signal works the same way: move signal
+More: tutorial 9
+```
+
+```rentals-de
+📱 Den Ferienunterkunft-Bot gibt es jetzt auch auf WhatsApp!
+
+Lieber WhatsApp statt Signal? So zieht diese Gruppe um:
+1. Ein Admin schreibt hier: umzug whatsapp
+2. Erstellt eine WhatsApp-Gruppe und fügt den Bot hinzu: +49 1520 6685988
+3. Schickt dort den Code, den der Bot hier nennt: umzug <Code>
+
+Alle beobachteten Unterkünfte und Einstellungen ziehen mit um. Zurück zu Signal geht es genauso mit: umzug signal
+```
+
+```rentals-en
+📱 The rental watcher is now on WhatsApp too!
+
+Prefer WhatsApp over Signal? This is how the group moves:
+1. An admin writes here: move whatsapp
+2. Create a WhatsApp group and add the bot: +49 1520 6685988
+3. Send the code the bot gives you here, in the new group: move <code>
+
+All watched rentals and settings move along. Moving back to Signal works the same way: move signal
+```
+
+```expenses-de
+📱 Den Ausgaben-Bot gibt es jetzt auch auf WhatsApp!
+
+Lieber WhatsApp statt Signal? So zieht diese Gruppe um:
+1. Ein Admin schreibt hier: umzug whatsapp
+2. Erstellt eine WhatsApp-Gruppe und fügt den Bot hinzu: +49 1520 6685988
+3. Schickt dort den Code, den der Bot hier nennt: umzug <Code>
+4. Jede Person schreibt in der neuen Gruppe einmal: ich bin <Name>
+
+Alle Ausgaben und die Bilanz ziehen mit um. Zurück zu Signal geht es genauso mit: umzug signal
+```
+
+```expenses-en
+📱 The expense bot is now on WhatsApp too!
+
+Prefer WhatsApp over Signal? This is how the group moves:
+1. An admin writes here: move whatsapp
+2. Create a WhatsApp group and add the bot: +49 1520 6685988
+3. Send the code the bot gives you here, in the new group: move <code>
+4. Everyone writes once in the new group: i am <name>
+
+All expenses and balances move along. Moving back to Signal works the same way: move signal
+```
+
 ## 2026-10-21
 
 ### For the groups
