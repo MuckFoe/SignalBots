@@ -282,7 +282,8 @@ def schedule_to_minutes(schedule: dict) -> int:
 def _once_when_label(schedule: dict, language: str) -> str:
     if "weekday" in schedule:
         names = WEEKDAY_NAMES.get(language, WEEKDAY_NAMES["en"])
-        return names[schedule["weekday"]]
+        weekday = names[schedule["weekday"]]
+        return f"on {weekday}" if language == "en" else f"am {weekday}"
     if schedule.get("unit"):
         interval = {"type": "interval", "value": schedule["value"], "unit": schedule["unit"]}
         delay = humanize_schedule(interval, language)
@@ -332,7 +333,7 @@ def format_schedule_frequency(schedule: dict | None, language: str) -> str:
     if schedule is None:
         return "disabled" if language == "en" else "deaktiviert"
     if schedule["type"] == "none":
-        return "no schedule" if language == "en" else "kein Plan"
+        return "no schedule" if language == "en" else "kein Zeitplan"
     if schedule["type"] == "once":
         return humanize_schedule(schedule, language)
     if schedule["type"] == "weekday":

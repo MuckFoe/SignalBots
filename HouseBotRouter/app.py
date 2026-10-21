@@ -6,16 +6,22 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
+import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 from group_router import (
     GroupRouter,
+    error_text,
+    guess_language,
     job_picker_text,
+    job_selected_text,
     job_set_ack,
     language_command_for,
     parse_job_and_language,
 )
+import migrations
+from migrations import MigrationStore
 from signal_client import SignalClient
 from whatsapp_client import WhatsAppClient, is_whatsapp_target
 
@@ -38,6 +44,7 @@ if not SIGNAL_BOT_NUMBER:
     raise RuntimeError("SIGNAL_BOT_NUMBER is required in environment variables.")
 
 router = GroupRouter(DATABASE_PATH, CHORE_BOT_URL, RENTAL_BOT_URL, EXPENSE_BOT_URL)
+migration_store = MigrationStore(DATABASE_PATH)
 signal = SignalClient(SIGNAL_API_URL, SIGNAL_BOT_NUMBER)
 whatsapp = WhatsAppClient(WHATSAPP_API_URL, WHATSAPP_API_KEY)
 outbound_messages: queue.Queue[Dict[str, str]] = queue.Queue()
@@ -215,6 +222,109 @@ def _is_stale_message(payload: Dict[str, str]) -> bool:
     return time.time() - message_timestamp > INCOMING_MAX_AGE_SECONDS
 
 
+def _call_bot(job: str, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    response = requests.post(f"{router.bot_urls[job]}{path}", json=payload, timeout=30)
+    response.raise_for_status()
+    return response.json()
+
+
+def _handle_migration(scope_id: str, sender: str, text: str, group_id: str) -> Optional[str]:
+    code = migrations.parse_code(text)
+    if code is not None:
+        return _complete_migration(scope_id, sender, group_id, code, text)
+    target = migrations.parse_start(text)
+    if target is not None:
+        return _start_migration(scope_id, sender, group_id, target, text)
+    claimed_name = migrations.parse_claim(text)
+    if claimed_name is not None:
+        return _claim_identity(scope_id, sender, claimed_name)
+    return None
+
+
+def _start_migration(scope_id: str, sender: str, group_id: str, target: str, text: str) -> Optional[str]:
+    job = router.resolve_job(scope_id)
+    if job is None:
+        return None
+    info = _call_bot(job, "/internal/scope", {"scope_id": scope_id, "sender": sender})
+    language = info.get("language") or migrations.code_language(text)
+    platform = migrations.PLATFORM_NAMES[target]
+    if migrations.platform_of(group_id) == target:
+        return migrations.text(language, "already_there", platform=platform)
+    if not info.get("is_admin"):
+        return migrations.text(language, "not_admin")
+    code = migration_store.create_code(scope_id, group_id, job, target, sender, language)
+    return migrations.text(language, "start_ok", platform=platform, code=code)
+
+
+def _complete_migration(scope_id: str, sender: str, group_id: str, code: str, text: str) -> str:
+    row = migration_store.get_code(code)
+    if row is None:
+        return migrations.text(migrations.code_language(text), "invalid_code")
+    language = row["language"]
+    platform = migrations.PLATFORM_NAMES[row["target_platform"]]
+    if migrations.platform_of(group_id) != row["target_platform"]:
+        return migrations.text(language, "wrong_platform", platform=platform)
+    if router.resolve_job(scope_id) is not None:
+        return migrations.text(language, "target_in_use")
+    job = row["job"]
+    try:
+        result = _call_bot(
+            job,
+            "/internal/migrate",
+            {
+                "from_scope": row["from_scope"],
+                "to_scope": scope_id,
+                "from_group_id": row["from_group_id"],
+                "to_group_id": group_id,
+                "sender": sender,
+            },
+        )
+    except requests.RequestException:
+        app.logger.exception("Moving %s to %s failed", row["from_scope"], scope_id)
+        return migrations.text(language, "failed")
+    members = result.get("members") or []
+    language = result.get("language") or language
+    migration_store.finish_move(code, row["from_scope"], scope_id, job, members, language)
+    # The mover already sees the claim prompt below; don't repeat it as a hint.
+    migration_store.hint_once(scope_id, sender)
+    _queue_signal_reply(row["from_group_id"], "", migrations.text(language, "old_notice", platform=platform))
+    reply = migrations.text(language, "done")
+    if members:
+        reply += "\n\n" + migrations.claim_prompt(language, [member["name"] for member in members])
+    return reply
+
+
+def _claim_identity(scope_id: str, sender: str, name: str) -> Optional[str]:
+    claims = migration_store.open_claims(scope_id)
+    match = next((claim for claim in claims if claim["display_name"].casefold() == name.casefold()), None)
+    if match is None:
+        # Not a known old name: an ordinary message like "ich bin gleich da".
+        return None
+    language = match["language"]
+    already = migration_store.claimed_name(scope_id, sender)
+    if already:
+        return migrations.text(language, "claim_already", name=already)
+    job = router.resolve_job(scope_id)
+    if job is None:
+        return None
+    _call_bot(
+        job,
+        "/internal/merge_member",
+        {"scope_id": scope_id, "old_sender": match["old_sender"], "new_sender": sender},
+    )
+    migration_store.mark_claimed(scope_id, match["old_sender"], sender)
+    return migrations.text(language, "claim_ok", name=match["display_name"])
+
+
+def _claim_hint(scope_id: str, sender: str) -> Optional[str]:
+    claims = migration_store.open_claims(scope_id)
+    if not claims or migration_store.claimed_name(scope_id, sender):
+        return None
+    if not migration_store.hint_once(scope_id, sender):
+        return None
+    return migrations.claim_prompt(claims[0]["language"], [claim["display_name"] for claim in claims])
+
+
 @app.get("/health")
 def health() -> tuple[dict, int]:
     return {"status": "ok", "service": "router"}, 200
@@ -250,6 +360,14 @@ def _process_incoming(payload: Optional[Dict[str, Any]]) -> tuple[dict, int]:
     scope_id = f"group:{incoming_group_id}" if incoming_group_id else f"dm:{sender}"
 
     try:
+        if incoming_group_id:
+            migration_reply = _handle_migration(scope_id, sender, incoming_text, incoming_group_id)
+            if migration_reply is not None:
+                _queue_signal_replies(incoming_group_id, sender, migration_reply)
+                return jsonify({"status": "processed"}), 200
+        if migration_store.is_moved(scope_id):
+            return {"status": "ignored_moved"}, 200
+
         job = router.resolve_job(scope_id)
         if job is None:
             picked, picked_language = parse_job_and_language(incoming_text)
@@ -263,9 +381,9 @@ def _process_incoming(payload: Optional[Dict[str, Any]]) -> tuple[dict, int]:
                         language_command_for(picked_language),
                         incoming_group_id,
                     )
-                    reply = result.get("reply", "") or job_set_ack(picked, picked_language)
+                    reply = result.get("reply", "") or job_selected_text(picked, picked_language)
                 else:
-                    reply = job_set_ack(picked)
+                    reply = job_set_ack(picked, guess_language(incoming_text))
                 _queue_signal_replies(incoming_group_id, sender, reply)
                 return jsonify({"status": "processed"}), 200
             _queue_signal_replies(incoming_group_id, sender, job_picker_text(incoming_text))
@@ -286,13 +404,16 @@ def _process_incoming(payload: Optional[Dict[str, Any]]) -> tuple[dict, int]:
             )
         else:
             _queue_signal_replies(incoming_group_id, sender, reply)
+        hint = _claim_hint(scope_id, sender)
+        if hint:
+            _queue_signal_replies(incoming_group_id, sender, hint)
         app.logger.info("Routed %s message for %s", job, scope_id)
     except Exception as exc:
         app.logger.exception("Router failed: %s", exc)
         _queue_signal_replies(
             incoming_group_id,
             sender,
-            "Something went wrong while handling your command.",
+            error_text(incoming_text),
         )
 
     return jsonify({"status": "processed"}), 200

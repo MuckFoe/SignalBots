@@ -69,13 +69,50 @@ def health() -> tuple[dict, int]:
 def internal_scope() -> tuple[dict, int]:
     body = request.get_json(silent=True) or {}
     scope_id = body.get("scope_id", "").strip()
+    sender = body.get("sender", "").strip()
     if not scope_id:
         return {"error": "scope_id required"}, 400
     return {
         "scope_id": scope_id,
         "has_admins": storage.has_admins(scope_id),
         "is_ready": storage.is_group_ready(scope_id),
+        "is_admin": bool(sender) and storage.is_admin(scope_id, sender),
+        "language": storage.get_language(scope_id) if storage.has_language(scope_id) else None,
     }, 200
+
+
+@app.post("/internal/migrate")
+def internal_migrate() -> tuple[dict, int]:
+    body = request.get_json(silent=True) or {}
+    old_scope = body.get("from_scope", "").strip()
+    new_scope = body.get("to_scope", "").strip()
+    sender = body.get("sender", "").strip()
+    new_group_id = body.get("to_group_id")
+    if not old_scope or not new_scope or not sender:
+        return {"error": "from_scope, to_scope and sender required"}, 400
+    if storage.has_admins(new_scope):
+        return {"error": "target scope already in use"}, 409
+    storage.move_scope(old_scope, new_scope, body.get("from_group_id"), new_group_id)
+    if new_group_id:
+        storage.register_group(new_group_id)
+    storage.add_admin(new_scope, sender)
+    return {
+        "status": "moved",
+        "language": storage.get_language(new_scope),
+        "members": storage.migration_members(new_scope),
+    }, 200
+
+
+@app.post("/internal/merge_member")
+def internal_merge_member() -> tuple[dict, int]:
+    body = request.get_json(silent=True) or {}
+    scope_id = body.get("scope_id", "").strip()
+    old_sender = body.get("old_sender", "").strip()
+    new_sender = body.get("new_sender", "").strip()
+    if not scope_id or not old_sender or not new_sender:
+        return {"error": "scope_id, old_sender and new_sender required"}, 400
+    storage.merge_member(scope_id, old_sender, new_sender)
+    return {"status": "merged"}, 200
 
 
 @app.post("/internal/handle")

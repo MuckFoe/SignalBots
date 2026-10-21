@@ -20,7 +20,9 @@ PROJECTS = {
         "docker-compose.yml",
         "Dockerfile",
         "requirements.txt",
+        "scope_migration.py",
         "signal_client.py",
+        "tutorial.py",
         "whatsapp_client.py",
     ],
     "HouseRentalTracker": [
@@ -39,12 +41,14 @@ PROJECTS = {
         "docker-compose.yml",
         "Dockerfile",
         "requirements.txt",
+        "scope_migration.py",
         "signal_client.py",
         "whatsapp_client.py",
     ],
     "HouseBotRouter": [
         "app.py",
         "group_router.py",
+        "migrations.py",
         "signal_client.py",
         "whatsapp_client.py",
         "Dockerfile",
@@ -64,6 +68,7 @@ PROJECTS = {
         "docker-compose.yml",
         "Dockerfile",
         "requirements.txt",
+        "scope_migration.py",
         "signal_client.py",
         "whatsapp_client.py",
     ],
@@ -156,7 +161,7 @@ def main() -> None:
     run(
         ssh,
         SU + "'cd /home/signalbot/HouseChoreTracker 2>/dev/null && docker compose down || true; "
-        "docker rm -f signal-api chore-bot bot-router rental-bot expense-bot grocery-bot 2>/dev/null || true'",
+        "docker rm -f signal-api whatsapp-api chore-bot bot-router rental-bot expense-bot grocery-bot 2>/dev/null || true'",
     )
 
     deploy_cmd = (

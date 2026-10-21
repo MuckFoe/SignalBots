@@ -29,159 +29,161 @@ SUPPORTED_LANGUAGES = {"en", "de"}
 
 USAGE_TIPS = {
     "en": {
-        "overview": "Add a listing with: add <url>",
-        "add": "Quick add: add <url> 2025-07-01 2025-07-08 4",
-        "poll": "Set drive time with: drive from <city>",
-        "history": "See all listings with: overview",
+        "overview": "Add a rental with: add <link>",
+        "add": "Quick add: add <link> 2027-07-01 2027-07-08 4",
+        "poll": "Calculate drive times from your town with: drive from <city>",
+        "history": "See all rentals with: overview",
     },
     "de": {
-        "overview": "Objekt hinzufügen mit: hinzufügen <url>",
-        "add": "Schnell: hinzufügen <url> 2025-07-01 2025-07-08 4",
-        "poll": "Fahrzeit setzen mit: fahrt von <Stadt>",
-        "history": "Alle Objekte mit: übersicht",
+        "overview": "Unterkunft hinzufügen: hinzufügen <Link>",
+        "add": "Schnell hinzufügen: hinzufügen <Link> 2027-07-01 2027-07-08 4",
+        "poll": "Fahrzeit ab deinem Ort berechnen: fahrt von <Stadt>",
+        "history": "Alle Unterkünfte anzeigen: übersicht",
     },
 }
 
 TEXT = {
     "en": {
         "help": (
-            "🏠 Rental Tracker commands:\n\n"
+            "🏠 Holiday rental watcher – commands\n\n"
             "- ❓ help\n"
-            "- 🏠 overview (aliases: list, status, liste)\n"
-            "- ➕ add\n"
-            "- ➕ add <url>\n"
-            "- ➕ add <url> YYYY-MM-DD YYYY-MM-DD [guests]\n"
-            "- 🗑️ remove <label>\n"
-            "- 🕐 history <label>\n"
+            "- 🏠 overview  (also: list, status)\n"
+            "- ➕ add  (step by step)\n"
+            "- ➕ add <link>\n"
+            "- ➕ add <link> <check-in> <check-out> [guests]\n"
+            "     e.g. add <link> 2027-07-01 2027-07-08 4\n"
+            "- 🗑️ remove <name>\n"
+            "- 🕐 history <name>\n"
             "- 🌐 websites\n"
-            "- 🌐 add website <hostname>\n"
+            "- 🌐 add website <domain>\n"
             "- 🚗 drive from <city>\n"
-            "- 🔍 poll (aliases: check, prüfen)\n"
+            "- 🔍 check  (check all rentals now)\n"
             "- 📊 stats\n"
-            "- 📈 overview chart / stats chart\n"
-            "🔧 Admin options: admin help"
+            "- 📈 overview chart · overview chart night · history <name> chart\n"
+            "🔧 Admin: admin help"
         ),
         "setup_choose_language": (
-            "👋 Welcome / Willkommen. Choose this group's language:\n"
-            "- language en\n"
-            "- sprache deutsch"
+            "👋 Welcome! First, choose the language for this group:\n"
+            "- english\n"
+            "- deutsch"
         ),
-        "setup_choose_bot": "Which bot should manage this group?\n{options}\nReply with: bot <id>",
-        "setup_bot_set": "✅ This group now uses: {name} (bot {bot_id}).",
-        "setup_complete": "🎉 Setup complete. Quick start: overview · add <url>",
-        "current_language": "Current language: English. Change with: admin language de",
-        "setup_bot_invalid": "Unknown bot. Reply with: bot <id>",
+        "setup_choose_bot": "Which bot should manage this group?\n{options}\nReply with: bot <number>",
+        "setup_bot_set": "✅ This group is now managed by {name} (bot {bot_id}).",
+        "setup_complete": "🎉 All set! Try for example: add <link> · overview · help",
+        "current_language": "Current language: English. Change it with: admin language de",
+        "setup_bot_invalid": "Unknown bot. Reply with: bot <number>",
         "overview_header": "🏠 Rental overview:",
-        "overview_empty": "🏠 No rentals tracked yet. Start with: add",
+        "overview_empty": "🏠 No rentals are being watched yet. Start with: add",
         "overview_line": (
             "{idx}. {label}\n"
-            "   - site: {host}\n"
-            "   - stay: {check_in} to {check_out} ({nights} nights, {guests} guests)\n"
+            "   - website: {host}\n"
+            "   - stay: {check_in} to {check_out} · nights: {nights} · guests: {guests}\n"
             "   - availability: {availability}\n"
-            "   - night price: {night_price}\n"
+            "   - price per night: {night_price}\n"
             "   - total price: {total_price}\n"
             "   - cleaning fee: {cleaning_fee}\n"
             "   - location: {location}\n"
             "   - drive from {origin}: {drive}\n"
-            "   - bedrooms/baths: {bedrooms}/{bathrooms}\n"
+            "   - bedrooms/bathrooms: {bedrooms}/{bathrooms}\n"
             "   - rating: {rating}\n"
-            "   - last check: {checked}\n"
-            "   - last change: {changed}"
+            "   - last checked: {checked}\n"
+            "   - last changed: {changed}"
         ),
-        "add_url": "Send the rental page URL, or cancel.",
-        "add_label": "What should this listing be called?\nSuggested: {suggested}\nReply with a label, or cancel.",
-        "add_check_in": "Check-in date for price checks (YYYY-MM-DD), or cancel.",
-        "add_check_out": "Check-out date (YYYY-MM-DD), or cancel.",
+        "add_url": "Send me the link to the rental, or cancel.",
+        "add_label": "Which name should I save this rental under?\nSuggestion: {suggested}\nReply with a name, or cancel.",
+        "add_check_in": "Check-in date for the price check (YYYY-MM-DD, e.g. 2027-07-01), or cancel.",
+        "add_check_out": "Check-out date (YYYY-MM-DD, e.g. 2027-07-08), or cancel.",
         "add_guests": "How many guests? Reply with a number, or cancel.",
         "add_confirm": (
             "Add '{label}'?\n"
             "- {url}\n"
-            "- {check_in} to {check_out}, {guests} guests\n"
-            "- site: {host} ({adapter})\n"
-            "Reply: yes, no, or cancel."
+            "- {check_in} to {check_out}, {guests} guest(s)\n"
+            "- website: {host} ({adapter})\n"
+            "Reply: yes, no or cancel."
         ),
-        "added": "✅ Added rental: {label}.",
-        "already_exists": "A rental with label '{label}' already exists.",
-        "removed": "🗑️ Removed rental: {label}.",
-        "not_found": "⚠️ Rental '{label}' not found.",
+        "added": "✅ Rental added: {label}.",
+        "already_exists": "A rental called '{label}' already exists.",
+        "removed": "🗑️ Rental removed: {label}.",
+        "not_found": "⚠️ The rental '{label}' was not found.",
         "cancelled": "↩️ Cancelled.",
-        "confirm_expected": "Please reply with yes, no, or cancel.",
-        "invalid_url": "That does not look like a valid URL.",
-        "unsupported_site": "I do not recognize this website yet. Register it with: add website <hostname>",
-        "invalid_date": "Use date format YYYY-MM-DD.",
-        "invalid_guests": "Guests must be a number between 1 and 30.",
-        "invalid_checkout": "Check-out must be after check-in.",
-        "website_added": "Registered website host: {host}",
-        "website_usage": "Usage: add website <hostname>, e.g. add website casamundo.de",
-        "websites_header": "Supported / registered sites:",
+        "confirm_expected": "Please reply with yes, no or cancel.",
+        "invalid_url": "That does not look like a valid link.",
+        "unsupported_site": "I don't know this website yet. Add it with: add website <domain>",
+        "invalid_date": "Please use the date format YYYY-MM-DD, e.g. 2027-07-01.",
+        "invalid_guests": "The number of guests must be between 1 and 30.",
+        "invalid_checkout": "The check-out date must be after the check-in date.",
+        "website_added": "Website added: {host}",
+        "website_usage": "Usage: add website <domain>, e.g. add website casamundo.de",
+        "websites_header": "Supported and added websites:",
         "websites_line": "- {adapter}: {name}",
-        "drive_set": "🚗 Drive time origin set to {name}.",
+        "drive_set": "🚗 Drive times are now calculated from {name}.",
         "drive_usage": "Usage: drive from <city>, e.g. drive from Stuttgart",
-        "drive_geocode_failed": "Could not find that place.",
-        "poll_started": "🔍 Polling all rentals now...",
-        "poll_done": "✅ Poll finished. {changed} change(s) detected.",
-        "poll_no_changes": "✅ No changes detected.",
+        "drive_geocode_failed": "I could not find that place.",
+        "poll_started": "🔍 Checking all rentals now…",
+        "poll_done": "✅ Check finished: {changed} change(s).",
+        "poll_no_changes": "✅ No changes found.",
         "poll_change": (
             "📢 Change for '{label}':\n"
             "- availability: {availability}\n"
-            "- night price: {night_price}\n"
+            "- price per night: {night_price}\n"
             "- total price: {total_price}"
         ),
-        "history_header": "🕐 History for '{label}':",
-        "history_line": "{idx}. {changed_at}: avail {availability}, night {night_price}, total {total_price}",
-        "history_empty": "No history for '{label}'.",
-        "language_set_en": "Language set to English.",
-        "language_set_de": "Language set to German.",
-        "language_usage": "Usage: language en or language de",
-        "admin_help": "🔧 Admin commands:\n- 🌐 admin language de\n- 🔍 admin poll",
-        "admin_only": "Use admin commands with: admin <action>",
+        "history_header": "🕐 History of '{label}':",
+        "history_line": "{idx}. {changed_at}: {availability} · per night {night_price} · total {total_price}",
+        "history_empty": "There is no history for '{label}' yet.",
+        "language_set_en": "This chat's language is now English.",
+        "language_set_de": "This chat's language is now German.",
+        "language_usage": "Usage: admin language en or admin language de",
+        "admin_help": "🔧 Admin commands:\n- 🌐 admin language de\n- 🔍 admin check",
+        "admin_only": "In groups, put admin in front of this command, e.g.: admin language de",
         "unexpected_error": "⚠️ Something went wrong while handling your command.",
-        "unknown": "Unknown command.\n\n{help}",
-        "usage_remove": "Usage: remove <label>",
-        "usage_history": "Usage: history <label>",
+        "unknown": "I don't know that command.\n\n{help}",
+        "usage_remove": "Usage: remove <name>",
+        "usage_history": "Usage: history <name>",
         "user_stats_header": "📊 Your rental stats:",
-        "user_stats_line": "- listings you added: {added}\n- total in this group: {total}",
-        "user_stats_empty": "You have not added any listings yet. Try: add <url>",
+        "user_stats_line": "- rentals you added: {added}\n- rentals in this group: {total}",
+        "user_stats_empty": "You have not added any rentals yet. Try: add <link>",
         "chart_empty": "📈 Not enough data for a chart yet.",
-        "chart_unknown": "📈 Unknown chart type.",
-        "chart_suggest_overview": "💡 Also available:\n• overview chart night\n• history <label> chart",
-        "chart_suggest_night": "💡 Also available:\n• overview chart\n• history <label> chart",
+        "chart_unknown": "📈 Unknown chart. Try: overview chart or overview chart night",
+        "chart_suggest_overview": "💡 Also available:\n• overview chart night\n• history <name> chart",
+        "chart_suggest_night": "💡 Also available:\n• overview chart\n• history <name> chart",
         "chart_suggest_history": "💡 Also available:\n• overview chart\n• overview chart night",
     },
     "de": {
         "help": (
-            "🏠 Befehle des Miet-Trackers:\n\n"
+            "🏠 Ferienunterkünfte beobachten – Befehle\n\n"
             "- ❓ hilfe\n"
-            "- 🏠 übersicht (auch: liste, status)\n"
-            "- ➕ hinzufügen / track\n"
-            "- ➕ hinzufügen <url>\n"
-            "- ➕ hinzufügen <url> YYYY-MM-DD YYYY-MM-DD [Gäste]\n"
+            "- 🏠 übersicht  (auch: liste, status)\n"
+            "- ➕ hinzufügen  (Schritt für Schritt)\n"
+            "- ➕ hinzufügen <Link>\n"
+            "- ➕ hinzufügen <Link> <Anreise> <Abreise> [Gäste]\n"
+            "     z.B. hinzufügen <Link> 2027-07-01 2027-07-08 4\n"
             "- 🗑️ entfernen <Name>\n"
             "- 🕐 verlauf <Name>\n"
             "- 🌐 webseiten\n"
-            "- 🌐 webseite hinzufügen <hostname>\n"
+            "- 🌐 webseite hinzufügen <Domain>\n"
             "- 🚗 fahrt von <Stadt>\n"
-            "- 🔍 prüfen (auch: check, poll)\n"
+            "- 🔍 prüfen  (alle Unterkünfte jetzt prüfen)\n"
             "- 📊 statistik\n"
-            "- 📈 übersicht diagramm / statistik diagramm\n"
-            "🔧 Admin-Optionen: admin hilfe"
+            "- 📈 übersicht diagramm · übersicht diagramm nacht · verlauf <Name> diagramm\n"
+            "🔧 Admin: admin hilfe"
         ),
         "setup_choose_language": (
-            "👋 Welcome / Willkommen. Wähle die Sprache dieser Gruppe:\n"
-            "- language en\n"
-            "- sprache deutsch"
+            "👋 Willkommen! Wähle zuerst die Sprache für diese Gruppe:\n"
+            "- deutsch\n"
+            "- english"
         ),
-        "setup_choose_bot": "Welcher Bot soll diese Gruppe verwalten?\n{options}\nAntworte mit: bot <id>",
-        "setup_bot_set": "✅ Diese Gruppe nutzt jetzt: {name} (bot {bot_id}).",
-        "setup_complete": "🎉 Setup fertig. Schnellstart: übersicht · hinzufügen <url>",
+        "setup_choose_bot": "Welcher Bot soll diese Gruppe betreuen?\n{options}\nAntworte mit: bot <Nummer>",
+        "setup_bot_set": "✅ Diese Gruppe wird jetzt von {name} betreut (bot {bot_id}).",
+        "setup_complete": "🎉 Alles eingerichtet! Probier zum Beispiel: hinzufügen <Link> · übersicht · hilfe",
         "current_language": "Aktuelle Sprache: Deutsch. Ändern mit: admin sprache englisch",
-        "setup_bot_invalid": "Unbekannter Bot. Antworte mit: bot <id>",
-        "overview_header": "🏠 Miet-Übersicht:",
-        "overview_empty": "🏠 Noch keine Mietobjekte. Starte mit: hinzufügen",
+        "setup_bot_invalid": "Diesen Bot gibt es nicht. Antworte mit: bot <Nummer>",
+        "overview_header": "🏠 Übersicht der Unterkünfte:",
+        "overview_empty": "🏠 Es werden noch keine Unterkünfte beobachtet. Starte mit: hinzufügen",
         "overview_line": (
             "{idx}. {label}\n"
-            "   - Seite: {host}\n"
-            "   - Zeitraum: {check_in} bis {check_out} ({nights} Nächte, {guests} Gäste)\n"
+            "   - Webseite: {host}\n"
+            "   - Zeitraum: {check_in} bis {check_out} · Nächte: {nights} · Gäste: {guests}\n"
             "   - Verfügbarkeit: {availability}\n"
             "   - Preis pro Nacht: {night_price}\n"
             "   - Gesamtpreis: {total_price}\n"
@@ -190,68 +192,68 @@ TEXT = {
             "   - Fahrt ab {origin}: {drive}\n"
             "   - Schlafzimmer/Bäder: {bedrooms}/{bathrooms}\n"
             "   - Bewertung: {rating}\n"
-            "   - Zuletzt geprüft: {checked}\n"
-            "   - Zuletzt geändert: {changed}"
+            "   - zuletzt geprüft: {checked}\n"
+            "   - zuletzt geändert: {changed}"
         ),
-        "add_url": "Schick die URL der Mietseite oder abbrechen.",
-        "add_label": "Wie soll das Objekt heißen?\nVorschlag: {suggested}\nAntworte mit einem Namen oder abbrechen.",
-        "add_check_in": "Check-in für Preisabfragen (YYYY-MM-DD) oder abbrechen.",
-        "add_check_out": "Check-out (YYYY-MM-DD) oder abbrechen.",
-        "add_guests": "Wie viele Gäste? Antworte mit einer Zahl oder abbrechen.",
+        "add_url": "Schick mir den Link zur Unterkunft – oder abbrechen.",
+        "add_label": "Unter welchem Namen soll ich die Unterkunft speichern?\nVorschlag: {suggested}\nAntworte mit einem Namen oder mit abbrechen.",
+        "add_check_in": "Anreisedatum für die Preisabfrage (JJJJ-MM-TT, z.B. 2027-07-01) – oder abbrechen.",
+        "add_check_out": "Abreisedatum (JJJJ-MM-TT, z.B. 2027-07-08) – oder abbrechen.",
+        "add_guests": "Wie viele Gäste? Antworte mit einer Zahl oder mit abbrechen.",
         "add_confirm": (
             "'{label}' hinzufügen?\n"
             "- {url}\n"
-            "- {check_in} bis {check_out}, {guests} Gäste\n"
-            "- Seite: {host} ({adapter})\n"
+            "- {check_in} bis {check_out}, Gäste: {guests}\n"
+            "- Webseite: {host} ({adapter})\n"
             "Antworte: ja, nein oder abbrechen."
         ),
-        "added": "✅ Mietobjekt hinzugefügt: {label}.",
-        "already_exists": "Ein Objekt mit dem Namen '{label}' existiert bereits.",
-        "removed": "🗑️ Mietobjekt entfernt: {label}.",
-        "not_found": "⚠️ Mietobjekt '{label}' nicht gefunden.",
+        "added": "✅ Unterkunft hinzugefügt: {label}.",
+        "already_exists": "Eine Unterkunft mit dem Namen '{label}' gibt es schon.",
+        "removed": "🗑️ Unterkunft entfernt: {label}.",
+        "not_found": "⚠️ Die Unterkunft '{label}' wurde nicht gefunden.",
         "cancelled": "↩️ Abgebrochen.",
         "confirm_expected": "Bitte antworte mit ja, nein oder abbrechen.",
-        "invalid_url": "Das sieht nicht nach einer gültigen URL aus.",
-        "unsupported_site": "Diese Webseite kenne ich noch nicht. Registriere sie mit: webseite hinzufügen <hostname>",
-        "invalid_date": "Nutze das Datumsformat YYYY-MM-DD.",
-        "invalid_guests": "Gäste müssen eine Zahl zwischen 1 und 30 sein.",
-        "invalid_checkout": "Check-out muss nach Check-in liegen.",
-        "website_added": "Webseite registriert: {host}",
-        "website_usage": "So geht's: webseite hinzufügen <hostname>, z.B. webseite hinzufügen casamundo.de",
-        "websites_header": "Unterstützte / registrierte Seiten:",
+        "invalid_url": "Das sieht nicht nach einem gültigen Link aus.",
+        "unsupported_site": "Diese Webseite kenne ich noch nicht. Füge sie hinzu mit: webseite hinzufügen <Domain>",
+        "invalid_date": "Bitte das Datum im Format JJJJ-MM-TT angeben, z.B. 2027-07-01.",
+        "invalid_guests": "Die Anzahl der Gäste muss zwischen 1 und 30 liegen.",
+        "invalid_checkout": "Die Abreise muss nach der Anreise liegen.",
+        "website_added": "Webseite hinzugefügt: {host}",
+        "website_usage": "So geht's: webseite hinzufügen <Domain>, z.B. webseite hinzufügen casamundo.de",
+        "websites_header": "Unterstützte und hinzugefügte Webseiten:",
         "websites_line": "- {adapter}: {name}",
-        "drive_set": "🚗 Fahrtzeit-Berechnung ab {name} gesetzt.",
+        "drive_set": "🚗 Fahrzeiten werden jetzt ab {name} berechnet.",
         "drive_usage": "So geht's: fahrt von <Stadt>, z.B. fahrt von Stuttgart",
-        "drive_geocode_failed": "Ort nicht gefunden.",
-        "poll_started": "🔍 Prüfe alle Mietobjekte...",
-        "poll_done": "✅ Prüfung fertig. {changed} Änderung(en).",
-        "poll_no_changes": "✅ Keine Änderungen festgestellt.",
+        "drive_geocode_failed": "Diesen Ort konnte ich nicht finden.",
+        "poll_started": "🔍 Prüfe jetzt alle Unterkünfte …",
+        "poll_done": "✅ Prüfung abgeschlossen: {changed} Änderung(en).",
+        "poll_no_changes": "✅ Keine Änderungen gefunden.",
         "poll_change": (
             "📢 Änderung bei '{label}':\n"
             "- Verfügbarkeit: {availability}\n"
             "- Preis pro Nacht: {night_price}\n"
             "- Gesamtpreis: {total_price}"
         ),
-        "history_header": "🕐 Verlauf für '{label}':",
-        "history_line": "{idx}. {changed_at}: Verfügbarkeit {availability}, Nacht {night_price}, gesamt {total_price}",
-        "history_empty": "Kein Verlauf für '{label}'.",
-        "language_set_en": "Sprache auf Englisch gesetzt.",
-        "language_set_de": "Sprache auf Deutsch gesetzt.",
-        "language_usage": "So geht's: language en oder language de",
-        "admin_help": "🔧 Admin-Befehle:\n- 🌐 admin sprache deutsch\n- 🔍 admin prüfen",
-        "admin_only": "Admin-Befehle nutzt du mit: admin <Aktion>",
-        "unexpected_error": "⚠️ Beim Verarbeiten des Befehls ist etwas schiefgelaufen.",
-        "unknown": "Unbekannter Befehl.\n\n{help}",
+        "history_header": "🕐 Verlauf von '{label}':",
+        "history_line": "{idx}. {changed_at}: {availability} · pro Nacht {night_price} · gesamt {total_price}",
+        "history_empty": "Für '{label}' gibt es noch keinen Verlauf.",
+        "language_set_en": "Die Sprache für diesen Chat ist jetzt Englisch.",
+        "language_set_de": "Die Sprache für diesen Chat ist jetzt Deutsch.",
+        "language_usage": "So geht's: admin sprache deutsch oder admin sprache englisch",
+        "admin_help": "🔧 Admin-Befehle:\n- 🌐 admin sprache englisch\n- 🔍 admin prüfen",
+        "admin_only": "In Gruppen bitte admin vor diesen Befehl schreiben, z.B.: admin sprache englisch",
+        "unexpected_error": "⚠️ Beim Verarbeiten deines Befehls ist etwas schiefgelaufen.",
+        "unknown": "Diesen Befehl kenne ich nicht.\n\n{help}",
         "usage_remove": "So geht's: entfernen <Name>",
         "usage_history": "So geht's: verlauf <Name>",
-        "user_stats_header": "📊 Deine Miet-Statistik:",
-        "user_stats_line": "- von dir hinzugefügt: {added}\n- gesamt in der Gruppe: {total}",
-        "user_stats_empty": "Du hast noch keine Objekte hinzugefügt. Probiere: hinzufügen <url>",
-        "chart_empty": "📈 Noch nicht genug Daten für ein Diagramm.",
-        "chart_unknown": "📈 Unbekannter Diagramm-Typ.",
-        "chart_suggest_overview": "💡 Auch verfügbar:\n• übersicht diagramm nacht\n• verlauf <Name> diagramm",
-        "chart_suggest_night": "💡 Auch verfügbar:\n• übersicht diagramm\n• verlauf <Name> diagramm",
-        "chart_suggest_history": "💡 Auch verfügbar:\n• übersicht diagramm\n• übersicht diagramm nacht",
+        "user_stats_header": "📊 Deine Statistik:",
+        "user_stats_line": "- von dir hinzugefügt: {added}\n- Unterkünfte in dieser Gruppe: {total}",
+        "user_stats_empty": "Du hast noch keine Unterkunft hinzugefügt. Probier: hinzufügen <Link>",
+        "chart_empty": "📈 Für ein Diagramm gibt es noch nicht genug Daten.",
+        "chart_unknown": "📈 Dieses Diagramm gibt es nicht. Probier: übersicht diagramm oder übersicht diagramm nacht",
+        "chart_suggest_overview": "💡 Außerdem:\n• übersicht diagramm nacht\n• verlauf <Name> diagramm",
+        "chart_suggest_night": "💡 Außerdem:\n• übersicht diagramm\n• verlauf <Name> diagramm",
+        "chart_suggest_history": "💡 Außerdem:\n• übersicht diagramm\n• übersicht diagramm nacht",
     },
 }
 
@@ -371,6 +373,13 @@ def _help_language(storage: Storage, scope_id: str, text: str, fallback: str) ->
     if any(token in lowered for token in ("deutsch", "german", " sprache de", " language de")):
         return "de"
     if any(token in lowered for token in ("english", "englisch", " sprache en", " language en")):
+        return "en"
+    if storage.has_language(scope_id):
+        return fallback
+    words = set(lowered.split())
+    if words & {"hilfe", "hallo"}:
+        return "de"
+    if words & {"help", "hello", "hi"}:
         return "en"
     return fallback
 
@@ -565,7 +574,18 @@ def _listing_confirm_text(
     )
 
 
+# A command word sent on its own gets its usage line instead of "unknown command".
+_BARE_COMMAND_USAGE = {
+    **dict.fromkeys(("remove", "entfernen"), "usage_remove"),
+    **dict.fromkeys(("history", "verlauf"), "usage_history"),
+    **dict.fromkeys(("drive from", "fahrt von", "origin"), "drive_usage"),
+    **dict.fromkeys(("add website", "website add", "webseite hinzufügen", "webseite hinzufuegen"), "website_usage"),
+}
+
+
 def _extract_add_payload(command_text: str, command_lowered: str) -> str | None:
+    if command_lowered.startswith(("add website", "website add")):
+        return None
     exact_commands = {"add", "hinzufügen", "hinzufuegen", "neu", "track"}
     if command_lowered in exact_commands:
         return ""
@@ -844,7 +864,6 @@ def handle_command(
                     storage.set_bot_id(scope_id, bot_id)
                     return [
                         _text(language_request, f"language_set_{language_request}"),
-                        _text(language_request, "setup_bot_set", name=bots[bot_id], bot_id=bot_id),
                         _text(language_request, "setup_complete"),
                     ]
                 return [
@@ -920,6 +939,10 @@ def handle_command(
             return _rental_overview_chart(storage, scope_id, language, chart_kind)
         if chart_base in {"stats", "statistik", "my stats", "meine statistik"}:
             return _rental_overview_chart(storage, scope_id, language, chart_kind)
+
+    bare_usage_key = _BARE_COMMAND_USAGE.get(" ".join(command_lowered.split()))
+    if bare_usage_key:
+        return _text(language, bare_usage_key)
 
     add_payload = _extract_add_payload(command_text, command_lowered)
     if add_payload is not None:

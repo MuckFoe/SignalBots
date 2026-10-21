@@ -44,7 +44,7 @@ class OneShotChoreTests(unittest.TestCase):
             {"BOT_REGISTRY": "", "BOT_INSTANCE_ID": "default", "BOT_INSTANCE_NAME": "House Chore Bot"},
         ):
             reply = _text(handle_command(self.storage, "sprache deutsch", self.alice, self.scope, self.group_id))
-        self.assertIn("Setup fertig", reply)
+        self.assertIn("Alles eingerichtet", reply)
         self.assertIn("Anna", _text(handle_command(self.storage, "name Anna", self.alice, self.scope, self.group_id)))
 
     def _setup_english_group(self) -> None:
@@ -53,7 +53,7 @@ class OneShotChoreTests(unittest.TestCase):
             {"BOT_REGISTRY": "", "BOT_INSTANCE_ID": "default", "BOT_INSTANCE_NAME": "House Chore Bot"},
         ):
             reply = _text(handle_command(self.storage, "language en", self.alice, self.scope, self.group_id))
-        self.assertIn("Setup complete", reply)
+        self.assertIn("All set", reply)
         self.assertIn("Alice", _text(handle_command(self.storage, "name Alice", self.alice, self.scope, self.group_id)))
 
     def test_parse_once_schedules(self) -> None:
@@ -83,7 +83,7 @@ class OneShotChoreTests(unittest.TestCase):
         stats_q = _text(handle_command(self.storage, "19:45", self.alice, self.scope, self.group_id))
         self.assertIn("Statistik", stats_q)
         confirm = _text(handle_command(self.storage, "ja", self.alice, self.scope, self.group_id))
-        self.assertIn("bestätigt", confirm.lower())
+        self.assertIn("abgehakt", confirm.lower())
         added = _text(handle_command(self.storage, "ja", self.alice, self.scope, self.group_id))
         self.assertIn("Einmalaufgabe", added)
         self.assertIn("ja", added.lower())
@@ -144,7 +144,7 @@ class OneShotChoreTests(unittest.TestCase):
         stats_prompt = _text(handle_command(self.storage, "19:45", self.alice, self.scope, self.group_id))
         self.assertIn("Statistik", stats_prompt)
         confirm = _text(handle_command(self.storage, "ja", self.alice, self.scope, self.group_id))
-        self.assertIn("bestätigt", confirm)
+        self.assertIn("abgehakt", confirm)
         added = _text(handle_command(self.storage, "ja", self.alice, self.scope, self.group_id))
         self.assertIn("Einmalaufgabe", added)
         row = self.storage._find_chore_case_insensitive(self.scope, "Paket abholen")
@@ -159,7 +159,7 @@ class OneShotChoreTests(unittest.TestCase):
         ask_stats = _text(handle_command(self.storage, "11:00", self.alice, self.scope, self.group_id))
         self.assertIn("stats", ask_stats.lower())
         ask_confirm = _text(handle_command(self.storage, "yes", self.alice, self.scope, self.group_id))
-        self.assertIn("confirmation", ask_confirm.lower())
+        self.assertIn("marked as done", ask_confirm.lower())
         added = _text(handle_command(self.storage, "yes", self.alice, self.scope, self.group_id))
         self.assertIn("one-time", added.lower())
 
@@ -174,8 +174,8 @@ class OneShotChoreTests(unittest.TestCase):
     def test_help_mentions_once_interview(self) -> None:
         self.assertIn("once", TEXT["en"]["help"])
         self.assertIn("einmal", TEXT["de"]["help"])
-        self.assertIn("guided", TEXT["en"]["chore_help"].lower())
-        self.assertIn("geführt", TEXT["de"]["chore_help"].lower())
+        self.assertIn("step by step", TEXT["en"]["chore_help"].lower())
+        self.assertIn("schritt für schritt", TEXT["de"]["chore_help"].lower())
         self.assertIn("stats", TEXT["en"]["chore_help"].lower())
         self.assertIn("Statistik", TEXT["de"]["chore_help"])
 

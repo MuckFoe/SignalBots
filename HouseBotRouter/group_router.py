@@ -2,6 +2,8 @@ from __future__ import annotations
 
 
 
+import re
+
 import sqlite3
 
 from pathlib import Path
@@ -235,33 +237,42 @@ class GroupRouter:
 
 
 JOB_TEXT = {
-
     "en": (
-
-        "🤖 What should this chat do?\n"
-
-        "Reply: chores · rentals · expenses\n"
-
-        "(aliases: haus · ferien · tricount)\n"
-
-        "💡 Tip: chores en or haus deutsch sets language too."
-
+        "🤖 Hi! What should I do in this chat? Reply with one word:\n"
+        "- chores – household tasks and cleaning schedule\n"
+        "- rentals – watch holiday rentals (prices and availability)\n"
+        "- expenses – split shared costs\n"
+        "💡 chores english also sets the language right away."
     ),
-
     "de": (
-
-        "🤖 Was soll dieser Chat machen?\n"
-
-        "Antworte: chores · rentals · expenses\n"
-
-        "(Kürzel: haus · ferien · tricount)\n"
-
-        "💡 Tipp: chores en oder haus deutsch wählt auch die Sprache."
-
+        "🤖 Hallo! Wofür soll ich in diesem Chat da sein? Antworte mit einem Wort:\n"
+        "- haushalt – Aufgaben und Putzplan\n"
+        "- ferien – Ferienunterkünfte beobachten (Preise und Verfügbarkeit)\n"
+        "- ausgaben – gemeinsame Kosten teilen\n"
+        "💡 Mit haushalt deutsch stellst du gleich auch die Sprache ein."
     ),
-
 }
 
+_GERMAN_HINTS = {
+    "hilfe", "hallo", "moin", "servus", "danke", "bitte", "deutsch", "german", "sprache",
+    "haushalt", "haus", "aufgaben", "ferien", "urlaub", "mieten", "mietobjekte",
+    "ausgaben", "kosten", "rechnung", "rechnungen",
+}
+_ENGLISH_HINTS = {
+    "help", "hello", "hi", "hey", "thanks", "please", "english", "englisch", "language",
+    "chores", "chore", "tasks", "household", "rentals", "rental", "houses", "expenses", "expense",
+}
+
+
+def guess_language(text: str) -> str | None:
+    words = set(re.findall(r"[a-zäöüß]+", text.lower()))
+    german = bool(words & _GERMAN_HINTS)
+    english = bool(words & _ENGLISH_HINTS)
+    if german and not english:
+        return "de"
+    if english and not german:
+        return "en"
+    return None
 
 
 _CHORE_ALIASES = {"chores", "chore", "haushalt", "aufgaben", "tasks", "household", "haus"}
@@ -383,60 +394,53 @@ def language_command_for(language: str) -> str:
 
 
 def job_picker_text(message_hint: str = "") -> str:
-
-    lowered = message_hint.strip().lower()
-
-    if any(token in lowered for token in ("deutsch", "german", "sprache de")):
-
-        return JOB_TEXT["de"]
-
-    if any(token in lowered for token in ("english", "englisch", "language en")):
-
-        return JOB_TEXT["en"]
-
+    language = guess_language(message_hint)
+    if language:
+        return JOB_TEXT[language]
     return JOB_TEXT["en"] + "\n\n" + JOB_TEXT["de"]
 
 
-
-
-
-JOB_SET_ACK = {
-
+JOB_SELECTED = {
     "chores": {
-
-        "en": "🧹 Chore bot. Choose language: language en or sprache deutsch",
-
-        "de": "🧹 Haushalts-Bot. Sprache wählen: language en oder sprache deutsch",
-
+        "en": "🧹 Chore bot selected.",
+        "de": "🧹 Haushalts-Bot ausgewählt.",
     },
-
     "rentals": {
-
-        "en": "🏠 Rental tracker. Choose language: language en or sprache deutsch",
-
-        "de": "🏠 Mieten-Tracker. Sprache wählen: language en oder sprache deutsch",
-
+        "en": "🏠 Rental watcher selected.",
+        "de": "🏠 Ferienunterkunft-Beobachtung ausgewählt.",
     },
-
     "expenses": {
-
-        "en": "💸 Expense split bot. Choose language: language en or sprache deutsch",
-
-        "de": "💸 Ausgaben-Bot. Sprache wählen: language en oder sprache deutsch",
-
+        "en": "💸 Expense splitting selected.",
+        "de": "💸 Kosten teilen ausgewählt.",
     },
+}
 
+LANGUAGE_QUESTION = {
+    "en": "Which language should I use? Reply: english or deutsch",
+    "de": "Welche Sprache soll ich verwenden? Antworte: deutsch oder english",
+}
+
+ERROR_TEXT = {
+    "en": "⚠️ Something went wrong. Please try again.",
+    "de": "⚠️ Da ist etwas schiefgelaufen. Bitte versuch es noch einmal.",
 }
 
 
-
+def job_selected_text(job: Job, language: str) -> str:
+    return JOB_SELECTED[job][language if language in {"en", "de"} else "en"]
 
 
 def job_set_ack(job: Job, language_hint: str | None = None) -> str:
-
     if language_hint in {"en", "de"}:
+        return f"{JOB_SELECTED[job][language_hint]}\n{LANGUAGE_QUESTION[language_hint]}"
+    return (
+        f"{JOB_SELECTED[job]['en']}\n{LANGUAGE_QUESTION['en']}\n\n"
+        f"{JOB_SELECTED[job]['de']}\n{LANGUAGE_QUESTION['de']}"
+    )
 
-        return JOB_SET_ACK[job][language_hint]
 
-    return JOB_SET_ACK[job]["en"] + "\n" + JOB_SET_ACK[job]["de"]
-
+def error_text(message_hint: str = "") -> str:
+    language = guess_language(message_hint)
+    if language:
+        return ERROR_TEXT[language]
+    return ERROR_TEXT["en"] + "\n" + ERROR_TEXT["de"]

@@ -30,27 +30,28 @@ from chart_parse import parse_chart_command
 from dialogue_utils import STALE_STEP, append_usage_tip, mobile_blocks, parse_stale_response, stale_prompt_text
 from stats_charts import group_chart_kinds, group_stats_chart, user_stats_chart
 from vacation_utils import format_duration, parse_duration, parse_vacation_plan
+from tutorial import parse_tutorial_command, tutorial_text
 
 
 SUPPORTED_LANGUAGES = {"en", "de"}
 
 USAGE_TIPS = {
     "en": {
-        "list": "Mark a chore done with: done <name> · Details: list extend",
+        "list": "Mark a chore as done with: done <chore>",
         "done": "See all chores anytime with: list",
-        "add": "Quick add: add <name> <schedule>  e.g. add bins Wednesday",
-        "undo": "Undo the last completion with: undo done <name>",
-        "history": "List chores with: list",
-        "name": "Your name appears when you mark chores done",
+        "add": "Quick add: add <name> <schedule>, e.g. add bins every Wednesday",
+        "undo": "Undo the last completion with: undo done <chore>",
+        "history": "See all chores with: list",
+        "name": "Your name is shown when you mark chores as done.",
         "stats": "my stats · group stats · group stats chore <name>",
     },
     "de": {
-        "list": "Aufgabe erledigen mit: erledigt <Name> · Details: liste erweitert",
-        "done": "Alle Aufgaben anzeigen mit: liste",
-        "add": "Schnell hinzufügen: aufgabe <Name> <Plan>  z.B. aufgabe müll Mittwoch",
-        "undo": "Letzte Erledigung rückgängig: rückgängig <Name>",
-        "history": "Aufgabenliste mit: liste",
-        "name": "Dein Name erscheint bei erledigten Aufgaben",
+        "list": "Abhaken mit: erledigt <Aufgabe>",
+        "done": "Alle Aufgaben anzeigen: liste",
+        "add": "Schnell anlegen: aufgabe <Name> <Zeitplan>, z.B. aufgabe Müll jeden Mittwoch",
+        "undo": "Letzte Erledigung rückgängig machen: rückgängig <Aufgabe>",
+        "history": "Alle Aufgaben anzeigen: liste",
+        "name": "Dein Name wird angezeigt, wenn du Aufgaben abhakst.",
         "stats": "meine statistik · gruppen statistik · gruppen statistik aufgabe <Name>",
     },
 }
@@ -58,55 +59,56 @@ USAGE_TIPS = {
 TEXT = {
     "en": {
         "help": (
-            "🧹 House Chore Bot\n\n"
-            "Daily:\n"
+            "🧹 Chore bot – commands\n\n"
+            "Everyday:\n"
             "- 📋 list · list extend\n"
-            "- ✅ done <name> [by/for <person>]\n"
-            "- ↩️ undo done <name>\n"
+            "- ✅ done <chore> [for <person>]\n"
+            "- ↩️ undo done <chore>\n"
             "- 👤 name <your name>\n\n"
-            "Chores:\n"
-            "- ➕ add  (guided)\n"
-            "- ➕ add <name> <schedule>\n"
+            "Manage chores:\n"
+            "- ➕ add  (step by step)\n"
+            "- ➕ add <name> <schedule>, e.g. add bins every Wednesday\n"
             "- 📝 todo <name>  (no schedule)\n"
-            "- 📝 once  (guided: when → time → stats?)\n"
-            "- ✏️ edit <name>  (also delete)\n"
+            "- 📝 once  (one-time chore, step by step)\n"
+            "- ✏️ edit <chore>  (change or delete)\n"
             "More: chore help · edit help\n\n"
             "Also:\n"
             "- 📊 my stats · group stats\n"
             "- 🏖️ vacation · vacation help\n"
             "- 🕐 history\n"
+            "- 🎓 tutorial  (how everything works, step by step)\n"
             "🔧 Admin: admin help"
         ),
         "chore_help": (
-            "➕ Add a chore:\n"
-            "- add — guided (name → schedule → time if needed → confirmation)\n"
-            "- add bins Wednesday\n"
-            "- add bathroom 1 hour\n"
-            "- todo buy vacuum  (open task, no due date)\n"
-            "- once — guided (name → when → time → count in stats? → confirmation)\n"
-            "- once IKEA  (continues interview)\n"
-            "One-time chores leave the list when done or deleted. Stats are optional."
+            "➕ Adding chores:\n"
+            "- add – step by step (name → schedule → time if needed → confirmation)\n"
+            "- add bins every Wednesday\n"
+            "- add clean bathroom every week\n"
+            "- todo buy vacuum  (open task without a due date)\n"
+            "- once – step by step (name → when → time → count in stats? → confirmation)\n"
+            "- once IKEA  (the bot asks for the rest)\n"
+            "One-time chores disappear once they are done or deleted. Counting them in stats is optional."
         ),
         "edit_help": (
-            "✏️ Change a chore with: edit <name>\n"
-            "Then pick one: name, schedule, reminder time, confirmation, overdue reminder, delete.\n"
+            "✏️ Change a chore with: edit <chore>\n"
+            "Then choose: name, schedule, reminder time, confirmation, overdue reminder or delete.\n"
             "Cancel anytime with: cancel"
         ),
         "setup_choose_language": (
-            "👋 Welcome / Willkommen. First choose this group's language / Wähle zuerst die Sprache dieser Gruppe:\n"
-            "- language en\n"
-            "- sprache deutsch"
+            "👋 Welcome! First, choose the language for this group:\n"
+            "- english\n"
+            "- deutsch"
         ),
         "setup_choose_bot": (
             "Which bot should manage this group?\n"
             "{options}\n"
-            "Reply with: bot <id>"
+            "Reply with: bot <number>"
         ),
-        "setup_bot_set": "✅ This group now uses: {name} (bot {bot_id}).",
-        "setup_complete": "🎉 Setup complete. Quick start: list · done <name> · add dishes every day",
-        "setup_bot_invalid": "Unknown bot. Reply with: bot <id>",
-        "setup_bot_usage": "Usage: bot <id>",
-        "admin_usage": "🔧 Ask for admin options with: admin help",
+        "setup_bot_set": "✅ This group is now managed by {name} (bot {bot_id}).",
+        "setup_complete": "🎉 All set! Try for example: add dishes every day · list · help\n🎓 New here? The tutorial explains everything: tutorial",
+        "setup_bot_invalid": "Unknown bot. Reply with: bot <number>",
+        "setup_bot_usage": "Usage: bot <number>",
+        "admin_usage": "🔧 Show admin commands with: admin help",
         "admin_help": (
             "🔧 Admin commands:\n"
             "- 🌐 admin language de\n"
@@ -116,7 +118,7 @@ TEXT = {
             "- 🔗 admin auth reminder on/off\n"
             "- 🗑️ admin reset group"
         ),
-        "admin_only": "Use admin commands with: admin <action>",
+        "admin_only": "In groups, put admin in front of this command, e.g.: admin language de",
         "admin_status": "Group status: {chore_count} chore(s), language: {chat_language}.",
         "stats_header": "📊 Group statistics:",
         "stats_summary": "- chores: {chore_count}\n- completions: {done_count}",
@@ -125,14 +127,14 @@ TEXT = {
         "stats_recent_header": "Recent actions:",
         "stats_none": "No data yet.",
         "user_stats_header": "📊 Your chore stats:",
-        "user_stats_line": "- completions: {total}\n- different chores: {unique}\n- favorite: {favorite}\n- last done: {last_done}",
+        "user_stats_line": "- completions: {total}\n- different chores: {unique}\n- most frequent: {favorite}\n- last done: {last_done}",
         "user_stats_by_chore_header": "How often you did each chore:",
         "user_stats_by_chore_line": "- {name}: {count}x",
-        "user_stats_empty": "You have not completed any chores yet. Try: done <name>",
+        "user_stats_empty": "You have not completed any chores yet. Try: done <chore>",
         "task_stats_header": "📊 Chore stats:",
-        "task_stats_line": "- {name}: {count}x total (last: {last_done} by {who})",
+        "task_stats_line": "- {name}: {count}x in total (last: {last_done} by {who})",
         "task_stats_by_person_none": "   nobody yet",
-        "task_stats_empty": "No chores tracked yet. Try: add",
+        "task_stats_empty": "No chores yet. Try: add",
         "group_stats_header": "📊 Group chore statistics:",
         "group_stats_summary": "- chores: {chore_count}\n- total completions: {done_count}",
         "group_stats_users_header": "Who did how much (all chores):",
@@ -148,22 +150,28 @@ TEXT = {
         "user_chore_stats_line": "- completions: {count}\n- last done: {last_done}",
         "user_chore_stats_none": "You have not completed '{name}' yet.",
         "stats_usage": (
-            "💡 Stats (broader → shorter):\n"
+            "💡 Statistics:\n"
             "• my stats\n"
             "• group stats\n"
             "• group stats chore <name>\n"
-            "• group stats matrix / chores / people\n"
+            "• group stats people / chores / matrix\n"
             "• group stats all  (all charts in one image)\n"
             "• my stats chart"
         ),
         "stats_chart_empty": "📈 Not enough data for a chart yet.",
-        "stats_chart_unknown": "📈 Unknown chart. Try: people, chores, matrix, all",
+        "stats_chart_unknown": (
+            "📈 Unknown chart. Try:\n"
+            "• group stats people\n"
+            "• group stats chores\n"
+            "• group stats matrix\n"
+            "• group stats all"
+        ),
         "stats_chart_suggest_group": "💡 Also: group stats chores · matrix · all",
         "stats_chore_usage": "Usage: group stats chore <name>",
         "stats_all_charts_header": "📈 All group charts:",
-        "confirm_add": "Add '{name}' ({interval})?\nReply: yes, no, or cancel",
+        "confirm_add": "Add '{name}' ({interval})?\nReply: yes, no or cancel",
         "edit_options": (
-            "What do you want to edit for '{name}'?\n"
+            "What do you want to change for '{name}'?\n"
             "- name\n"
             "- schedule\n"
             "- reminder time\n"
@@ -172,62 +180,74 @@ TEXT = {
             "- delete\n"
             "Reply with one option, or cancel."
         ),
-        "edit_choose_option": "Choose one option above, or cancel.",
-        "edit_new_name": "What should '{name}' be called now?\nReply with the new name, or cancel.",
-        "edit_new_schedule": "What should the due schedule be for '{name}'?\nExamples: every hour, every Wednesday, no reminder.\nReply with the schedule, or cancel.",
+        "edit_choose_option": "Please choose one of the options above, or cancel.",
+        "edit_new_name": "What should '{name}' be called from now on?\nReply with the new name, or cancel.",
+        "edit_new_schedule": (
+            "How often is '{name}' due?\n"
+            "Examples: every day, every 2 weeks, every Wednesday, no schedule.\n"
+            "Reply with the schedule, or cancel."
+        ),
         "edit_new_remind_time": (
-            "At what time should '{name}' be reminded?\n"
-            "Examples: 08:00, 19:45, anytime (defaults to 08:00).\n"
+            "At what time should the bot remind you about '{name}'?\n"
+            "Examples: 08:00, 19:45 – or anytime (then 08:00).\n"
             "Reply with a time, or cancel."
         ),
-        "edit_new_confirmation": "Should '{name}' require a done confirmation?\nReply: yes, no, or cancel",
-        "edit_new_repeat": "How often should overdue reminders repeat for '{name}'?\nReply with a schedule, or cancel.",
-        "edit_confirm_delete": "Delete '{name}' and its history?\nReply: yes, no, or cancel",
-        "edit_delete_cancelled": "Delete cancelled. '{name}' was kept.",
-        "usage_edit": "Usage: edit <chore name>",
-        "no_pending_add": "No chore addition is waiting for confirmation.",
+        "edit_new_confirmation": "Does '{name}' have to be marked as done?\nReply: yes, no or cancel",
+        "edit_new_repeat": (
+            "How often should the bot remind you again while '{name}' is overdue?\n"
+            "Examples: 1 hour, 8 hours.\n"
+            "Reply with an interval, or cancel."
+        ),
+        "edit_confirm_delete": "Delete '{name}' including its history?\nReply: yes, no or cancel",
+        "edit_delete_cancelled": "Deletion cancelled. '{name}' was kept.",
+        "usage_edit": "Usage: edit <chore>",
+        "no_pending_add": "No new chore is waiting for confirmation.",
         "cancelled": "↩️ Cancelled.",
-        "confirm_expected": "Please reply with yes, no, or cancel.",
+        "confirm_expected": "Please reply with yes, no or cancel.",
         "setup_chore_name": "What is the chore called?\nReply with the name, or cancel.",
         "setup_chore_schedule": (
-            "How often should '{name}' be due?\n"
-            "Examples: every hour (reply: 1 hour), every 2 months (reply: 2 months), "
-            "every Wednesday (reply: Wednesday).\n"
-            "For an open task with no due date, reply: no schedule\n"
+            "How often is '{name}' due?\n"
+            "Examples: every day, every 2 weeks, every Wednesday.\n"
+            "For an open task without a due date, reply: no schedule\n"
             "Reply with the schedule, or cancel."
         ),
         "setup_chore_remind_time": (
-            "At what time should '{name}' be reminded (group local time)?\n"
-            "Examples: 08:00, 19:45. Reply anytime for the default 08:00, or cancel."
+            "At what time should the bot remind you about '{name}' (group's local time)?\n"
+            "Examples: 08:00, 19:45 – or anytime (then 08:00).\n"
+            "Reply with a time, or cancel."
         ),
-        "setup_chore_confirmation": "Should '{name}' require a done confirmation?\nReply: yes, no, or cancel",
+        "setup_chore_confirmation": (
+            "Does '{name}' have to be marked as done?\n"
+            "If yes, the bot keeps reminding you while it is overdue.\n"
+            "Reply: yes, no or cancel"
+        ),
         "setup_chore_repeat": (
-            "How often should overdue reminders repeat for '{name}'?\n"
-            "Reply with a schedule, default ({default_interval}), or cancel."
+            "How often should the bot remind you again while '{name}' is overdue?\n"
+            "Reply with an interval (e.g. 1 hour), default ({default_interval}), or cancel."
         ),
-        "no_chores": "📋 No chores configured yet. Add one with: add dishes 1 hour · or open task: task buy milk",
+        "no_chores": "📋 No chores yet. Add one, e.g.: add dishes every day · or without a schedule: todo buy milk",
         "chores_header": "📋 Chores:",
         "chores_header_extended": "📋 Chores (details):",
         "list_extend_tip": "Details: list extend",
         "open_task_short": "open",
         "reminder_label": "reminder",
         "reminder_time_label": "reminder time",
-        "open_task_label": "open task · no schedule · mark done anytime",
-        "confirmation_required": "done confirmation: yes",
-        "repeat_reminder_label": "overdue reminder",
-        "confirmation_required_no_reminder": "can still be marked done",
-        "confirmation_not_required": "done confirmation: no",
-        "confirmation_set_on": "Confirmation enabled for: {name}",
-        "confirmation_set_off": "Confirmation disabled for: {name}",
+        "open_task_label": "open task · no schedule · can be marked done anytime",
+        "confirmation_required": "must be marked as done: yes",
+        "repeat_reminder_label": "reminder while overdue",
+        "confirmation_required_no_reminder": "can still be marked as done",
+        "confirmation_not_required": "must be marked as done: no",
+        "confirmation_set_on": "'{name}' now has to be marked as done.",
+        "confirmation_set_off": "'{name}' no longer has to be marked as done.",
         "usage_confirmation": "Usage: confirmation <chore> on/off",
-        "schedule_set": "Schedule for '{name}' set to {interval}. History was kept.",
+        "schedule_set": "New schedule for '{name}': {interval}. The history was kept.",
         "usage_schedule": "Usage: schedule <chore> <schedule>, e.g. schedule dishes every day",
-        "repeat_set": "Overdue reminder for '{name}' set to {interval}.",
-        "usage_repeat": "Usage: reminder <chore> <schedule>, e.g. reminder dishes 1 hour",
-        "reminder_time_set": "Reminder time for '{name}' set to {time}.",
+        "repeat_set": "Reminder while '{name}' is overdue: {interval}.",
+        "usage_repeat": "Usage: reminder <chore> <interval>, e.g. reminder dishes 1 hour",
+        "reminder_time_set": "Reminder time for '{name}': {time}.",
         "usage_reminder_time": "Usage: reminder time <chore> <HH:MM>, e.g. reminder time dishes 08:00",
-        "quiet_hours_current": "Quiet hours are {start}-{end} ({timezone}). Reminders are not sent during that time.",
-        "quiet_hours_set": "Quiet hours set to {start}-{end} ({timezone}). Reminders are not sent during that time.",
+        "quiet_hours_current": "Quiet hours: {start}-{end} ({timezone}). No reminders are sent during that time.",
+        "quiet_hours_set": "Quiet hours set to {start}-{end} ({timezone}). No reminders are sent during that time.",
         "usage_quiet_hours": "Usage: admin quiet hours 00:00-08:00",
         "auth_reminder_current": "Signal link reminders are {state}.",
         "auth_reminder_set_on": "Signal link reminders enabled. The bot will remind this group roughly every 25 days.",
@@ -237,159 +257,174 @@ TEXT = {
         "enabled": "enabled",
         "no_groups": "No groups registered yet.",
         "groups_header": "Registered groups:",
-        "current_language": "Current language: English. Change with: language de",
-        "language_set_en": "Language set to English for this chat.",
-        "language_set_de": "Language set to German for this chat.",
-        "language_usage": "Usage: language en or language de",
-        "current_timezone": "Current timezone: {timezone}. Change with: timezone Europe/Berlin",
-        "timezone_set": "Timezone set to {timezone}. Reminder times and quiet hours use this zone.",
-        "timezone_usage": "Usage: timezone Europe/Berlin (aliases: berlin, utc, london, paris, ...)",
-        "usage_done": "Usage: done <chore name> [by/for <person>]",
-        "usage_undo_done": "Usage: undo done <chore name>",
-        "undo_done_saved": "↩️ Undid the last completion for: {name}",
-        "undo_done_missing": "No completion to undo for: {name}",
-        "usage_add": "Usage: add <chore name> <schedule>, e.g. add dishes 1 hour · open task: task buy milk",
-        "usage_task": "Usage: task <name>, e.g. task buy new vacuum\nCreates an open task with no schedule — mark done anytime. Tasks must be created first (no free-form duplicates).",
-        "added": "✅ Added chore: {name}. Reminder: {interval}.",
-        "added_open_task": "✅ Added open task: {name}. No schedule — mark done anytime with: done {name}",
-        "added_one_shot": "✅ One-time: {name}. Reminder: {interval}. Gone after done. Stats: {stats}. Delete anytime: delete {name}",
-        "usage_once": "Usage: once  (guided)\nOr: once <name> [today|tomorrow|weekday]\nTime and stats are asked in the interview.",
+        "current_language": "Current language: English. Change it with: admin language de",
+        "language_set_en": "This chat's language is now English.",
+        "language_set_de": "This chat's language is now German.",
+        "language_usage": "Usage: admin language en or admin language de",
+        "current_timezone": "Current timezone: {timezone}. Change it with: admin timezone Europe/Berlin",
+        "timezone_set": "Timezone set to {timezone}. Reminder times and quiet hours use this timezone.",
+        "timezone_usage": "Usage: admin timezone Europe/Berlin (also: berlin, utc, london, paris, …)",
+        "usage_done": "Usage: done <chore> [for <person>]",
+        "usage_undo_done": "Usage: undo done <chore>",
+        "undo_done_saved": "↩️ Undid the last completion of '{name}'.",
+        "undo_done_missing": "There is no completion of '{name}' to undo.",
+        "usage_add": "Usage: add <name> <schedule>, e.g. add dishes every day · without a schedule: todo buy milk",
+        "usage_task": (
+            "Usage: todo <name>, e.g. todo buy new vacuum\n"
+            "This creates an open task without a schedule that you can mark as done anytime."
+        ),
+        "added": "✅ Added chore: {name} ({interval}).",
+        "added_open_task": "✅ Added open task: {name}. No schedule – mark it as done anytime with: done {name}",
+        "added_one_shot": (
+            "✅ Added one-time chore: {name} ({interval}). It disappears once it is done. "
+            "Counted in stats: {stats}. Delete it with: delete {name}"
+        ),
+        "usage_once": (
+            "Usage: once  (step by step)\n"
+            "Or: once <name> [today|tomorrow|<weekday>]\n"
+            "The bot then asks for the time and whether it counts in stats."
+        ),
         "setup_once_schedule": (
-            "When should '{name}' happen once?\n"
-            "Examples: today, tomorrow, Friday, or in 2 hours.\n"
+            "When should the one-time chore '{name}' be done?\n"
+            "Examples: today, tomorrow, Friday.\n"
             "Reply with when, or cancel."
         ),
         "setup_once_remind_time": (
-            "At what time should '{name}' remind you (group local time)?\n"
-            "Examples: 08:00, 19:45. Reply anytime for 08:00, or cancel."
+            "At what time should the bot remind you about '{name}' (group's local time)?\n"
+            "Examples: 08:00, 19:45 – or anytime (then 08:00).\n"
+            "Reply with a time, or cancel."
         ),
         "setup_once_count_stats": (
-            "Should '{name}' count in stats (one-time chores bucket)?\n"
-            "Reply: yes, no, or cancel"
+            "Should '{name}' count in the stats (under one-time chores)?\n"
+            "Reply: yes, no or cancel"
         ),
         "once_short": "once",
         "once_stats_yes": "yes",
         "once_stats_no": "no",
-        "count_in_stats_label": "count in stats",
-        "count_in_stats_yes": "yes · one-time chores bucket",
+        "count_in_stats_label": "counts in stats",
+        "count_in_stats_yes": "yes (one-time chores)",
         "count_in_stats_no": "no",
-        "already_exists": "Chore already exists: {name}. Use 'list' to see chores.",
-        "could_not_add": "Could not add '{name}'. Use: add <name> <schedule> or task <name>",
-        "usage_delete": "Usage: delete <chore name>",
+        "already_exists": "The chore '{name}' already exists. See all chores with: list",
+        "could_not_add": "Could not add '{name}'. Usage: add <name> <schedule> or todo <name>",
+        "usage_delete": "Usage: delete <chore>",
         "deleted": "🗑️ Deleted chore: {name}",
-        "not_found": "⚠️ Chore '{name}' not found.",
+        "not_found": "⚠️ The chore '{name}' was not found.",
         "usage_change": "Usage: rename <old name> -> <new name>",
-        "no_history": "No chores logged yet.",
-        "history_header": "🕐 Recent chore logs:",
-        "history_line": "{idx}. {name} by {sender} at {done_at}",
-        "group_only": "This command only works inside a group chat.",
+        "no_history": "No chores have been completed yet.",
+        "history_header": "🕐 Recently completed:",
+        "history_line": "{idx}. {name} – {sender}, {done_at}",
+        "group_only": "This command only works in group chats.",
         "reset_requested": (
-            "Reset requested. This will delete all chores/history for this group.\n"
-            "To confirm within 10 minutes, send: reset group confirm {token}\n"
-            "To cancel, send: reset group cancel"
+            "⚠️ Reset requested. This deletes all chores and the entire history of this group.\n"
+            "To confirm within 10 minutes, send: admin reset group confirm {token}\n"
+            "To cancel, send: admin reset group cancel"
         ),
-        "usage_reset_confirm": "Usage: reset group confirm <code>",
+        "usage_reset_confirm": "Usage: admin reset group confirm <code>",
         "reset_failed": (
-            "Reset confirmation failed. Make sure the code is correct, not expired, "
-            "and confirmed by the same sender who requested it."
+            "Reset not confirmed. The code must be correct and not expired, "
+            "and it must be sent by the same person who requested the reset."
         ),
-        "reset_done": "✅ Group chores, history, and reminders have been reset.",
+        "reset_done": "✅ This group's chores, history and reminders have been reset.",
         "did_you_mean": "Did you mean: {command}?",
         "unexpected_error": "⚠️ Something went wrong while handling your command.",
-        "mark_done_missing": "⚠️ Chore '{name}' not found. Create it first with add/task, then mark done. Use 'list' to see chores.",
-        "mark_done_saved": "✅ Saved: {name} at {done_at} by {sender}.\nUndo: undo done {name}",
-        "mark_done_one_shot": "✅ {name} done at {done_at} by {sender} and removed.\nCounted under one-time chores.",
-        "mark_done_one_shot_no_stats": "✅ {name} done at {done_at} by {sender} and removed.\nNot counted in stats.",
-        "done_member_not_found": "⚠️ I could not find a member named '{name}'. Ask that person to set a name first with: name <your name>.",
+        "mark_done_missing": (
+            "⚠️ The chore '{name}' was not found. Create it first with add or todo. "
+            "See all chores with: list"
+        ),
+        "mark_done_saved": "✅ Done: {name} – by {sender} ({done_at}).\nUndo: undo done {name}",
+        "mark_done_one_shot": "✅ {name} done by {sender} ({done_at}) and removed from the list.\nCounted under one-time chores.",
+        "mark_done_one_shot_no_stats": "✅ {name} done by {sender} ({done_at}) and removed from the list.\nNot counted in stats.",
+        "done_member_not_found": (
+            "⚠️ I don't know a group member called '{name}'. "
+            "That person needs to set a name first with: name <name>"
+        ),
         "ask_display_name": (
-            "What name should I show when you complete chores?\n"
+            "Which name should I show for your completed chores?\n"
             "Reply with your name, or cancel."
         ),
-        "display_name_invalid": "Please use 2-24 letters, numbers, spaces, or hyphens.",
+        "display_name_invalid": "Please use 2-24 characters: letters, numbers, spaces or hyphens.",
         "display_name_saved": "👤 Your name is now: {name}",
         "usage_name": "Usage: name <your name>",
-        "renamed": "✏️ Renamed '{old}' to '{new}'.",
-        "new_name_empty": "New chore name cannot be empty.",
-        "rename_missing": "Chore '{name}' does not exist.",
-        "rename_exists": "Chore '{name}' already exists.",
+        "renamed": "✏️ '{old}' is now called '{new}'.",
+        "new_name_empty": "The new name cannot be empty.",
+        "rename_missing": "The chore '{name}' does not exist.",
+        "rename_exists": "The chore '{name}' already exists.",
         "reminder": (
             "🔔 Reminder: '{name}' is due.\n"
-            "Mark it done with: done {name}\n"
-            "💡 help"
+            "Done? Then send: done {name}\n"
+            "💡 All commands: help"
         ),
         "reminder_no_confirmation": (
             "🔔 Reminder: '{name}' is due.\n"
-            "💡 help"
+            "💡 All commands: help"
         ),
         "auth_reminder": (
-            "🔗 Signal link reminder: linked devices can be disconnected after long inactivity.\n"
-            "If the bot stops replying, re-link it at http://127.0.0.1:8080/v1/qrcodelink?device_name=signal-api"
+            "🔗 Signal link reminder: linked devices can be disconnected after a long period of inactivity.\n"
+            "If the bot stops replying, it has to be re-linked: http://127.0.0.1:8080/v1/qrcodelink?device_name=signal-api"
         ),
         "vacation_help": (
             "🏖️ Vacation mode:\n"
-            "- vacation — guided setup (start now or in X days, then duration)\n"
-            "- vacation 14 days — start now for 14 days\n"
-            "- vacation in 3 days for 14 days — plan ahead\n"
-            "- vacation status — show your vacation\n"
-            "- vacation cancel — cancel planned/active vacation\n"
-            "- vacation add — add a pre-vacation task\n"
+            "- vacation – step by step (start now or in X days, then the duration)\n"
+            "- vacation 14 days – starts now, lasts 14 days\n"
+            "- vacation in 3 days for 14 days – plan ahead\n"
+            "- vacation status – show your vacation\n"
+            "- vacation cancel – cancel a planned or active vacation\n"
+            "- vacation add – add a task to do before leaving\n"
             "- vacation add empty fridge\n"
-            "- vacation list — list pre-vacation tasks\n"
+            "- vacation list – show tasks to do before leaving\n"
             "- vacation delete <name>\n"
-            "- vacation done <name> — confirm a pre-vacation task\n"
-            "- vacation skip prep — skip remaining pre-vacation tasks\n"
-            "While vacation is active, chore reminders are skipped. "
-            "After vacation, the normal schedule continues — e.g. a weekly Friday chore "
-            "alerts on the next Friday after vacation, not on the day you return."
+            "- vacation done <name> – check off a task before leaving\n"
+            "- vacation skip prep – skip the remaining tasks before leaving\n"
+            "During the vacation, chore reminders are paused. Afterwards, the normal schedule continues – "
+            "e.g. a weekly Friday chore reminds you on the first Friday after the vacation, not on the day you return."
         ),
         "vacation_setup_when": (
-            "🏖️ Vacation setup — when does it start?\n"
-            "Reply: now, or in 3 days, or cancel"
+            "🏖️ Vacation – when does it start?\n"
+            "Reply: now, in 3 days, or cancel"
         ),
         "vacation_setup_duration": (
             "🏖️ How long is the vacation?\n"
-            "Reply with a duration, e.g. 14 days, 2 weeks, or cancel"
+            "Reply with a duration, e.g. 14 days or 2 weeks – or cancel"
         ),
         "vacation_setup_chore_name": (
-            "🏖️ Pre-vacation task name?\n"
-            "Reply with the task name, or cancel"
+            "🏖️ What is the task to do before leaving called?\n"
+            "Reply with the name, or cancel"
         ),
-        "vacation_usage": "🏖️ Try: vacation, vacation 14 days, or vacation help",
-        "vacation_duration_invalid": "Could not read that duration. Example: 14 days or 2 weeks",
-        "vacation_when_invalid": "Reply with now, in 3 days, or cancel",
-        "vacation_chore_added": "Pre-vacation task added: {name}",
-        "vacation_chore_exists": "Pre-vacation task '{name}' already exists",
-        "vacation_chore_deleted": "Pre-vacation task deleted: {name}",
-        "vacation_chore_not_found": "Pre-vacation task not found: {name}",
-        "vacation_chore_list_empty": "No pre-vacation tasks yet. Add one with: vacation add",
-        "vacation_chore_list": "Pre-vacation tasks:\n{items}",
+        "vacation_usage": "🏖️ Try: vacation, vacation 14 days or vacation help",
+        "vacation_duration_invalid": "I could not understand that duration. Example: 14 days or 2 weeks",
+        "vacation_when_invalid": "Please reply with now, in 3 days, or cancel",
+        "vacation_chore_added": "Task before leaving added: {name}",
+        "vacation_chore_exists": "The task before leaving '{name}' already exists.",
+        "vacation_chore_deleted": "Task before leaving deleted: {name}",
+        "vacation_chore_not_found": "Task before leaving not found: {name}",
+        "vacation_chore_list_empty": "No tasks before leaving yet. Add one with: vacation add",
+        "vacation_chore_list": "Tasks before leaving:\n{items}",
         "vacation_none": "You have no planned or active vacation.",
-        "vacation_cancelled": "Vacation cancelled. Chore schedules continue as before.",
+        "vacation_cancelled": "Vacation cancelled. Chores continue as usual.",
         "vacation_nothing_to_cancel": "You have no vacation to cancel.",
-        "vacation_prep_done": "Pre-vacation task done: {name}",
-        "vacation_prep_not_found": "Pre-vacation task not found or vacation not in prep: {name}",
-        "vacation_prep_skipped": "Pre-vacation checklist skipped. Vacation is now active and reminders are paused.",
-        "vacation_prep_skip_unavailable": "No pre-vacation checklist to skip.",
+        "vacation_prep_done": "Task before leaving done: {name}",
+        "vacation_prep_not_found": "Task before leaving not found, or the vacation is not in preparation: {name}",
+        "vacation_prep_skipped": "Preparation skipped. The vacation is now active and reminders are paused.",
+        "vacation_prep_skip_unavailable": "There is no preparation to skip.",
         "vacation_scheduled": (
             "🏖️ Vacation planned.\n"
             "Starts: {starts}\n"
             "Ends: {ends}\n"
             "Duration: {duration}\n"
-            "Reminders pause when it starts."
+            "Reminders are paused once it starts."
         ),
         "vacation_started_active": (
             "🏖️ Vacation started.\n"
             "Ends: {ends}\n"
             "Duration: {duration}\n"
-            "Chore reminders are skipped until then. "
-            "After vacation, the normal schedule continues from where it left off."
+            "Until then, there are no chore reminders. Afterwards, the normal schedule continues."
         ),
         "vacation_started_prep": (
-            "🏖️ Vacation started — finish these pre-vacation tasks first:\n"
+            "🏖️ Vacation starts – please finish these tasks before leaving:\n"
             "{items}\n\n"
-            "Confirm each with: vacation done <name>\n"
-            "Or skip all with: vacation skip prep\n\n"
-            "Chore reminders are paused until vacation ends."
+            "Check them off with: vacation done <name>\n"
+            "Or skip them all with: vacation skip prep\n\n"
+            "Chore reminders are paused until the vacation ends."
         ),
         "vacation_status_scheduled": (
             "🏖️ Planned vacation\n"
@@ -398,88 +433,89 @@ TEXT = {
             "Duration: {duration}"
         ),
         "vacation_status_prep": (
-            "🏖️ Vacation (pre-departure checklist)\n"
+            "🏖️ Vacation (preparation)\n"
             "Ends: {ends}\n"
             "Still to do:\n{items}"
         ),
         "vacation_status_active": (
-            "🏖️ Active vacation\n"
+            "🏖️ Vacation in progress\n"
             "Ends: {ends}\n"
-            "Chore reminders are skipped. Normal schedule resumes afterward."
+            "No chore reminders until then; afterwards, the normal schedule continues."
         ),
         "vacation_ended_notice": (
-            "🏖️ {name}'s vacation ended. Chore reminders continue on the normal schedule."
+            "🏖️ {name}'s vacation is over. Chore reminders follow the normal schedule again."
         ),
         "vacation_started_notice": (
-            "🏖️ {name}'s vacation started. Chore reminders skip until {ends}, "
-            "then continue on the normal schedule."
+            "🏖️ {name}'s vacation has started. No reminders until {ends}; "
+            "afterwards, the normal schedule continues."
         ),
         "vacation_started_prep_notice": (
-            "🏖️ {name}'s vacation started. Pre-vacation tasks:\n{items}"
+            "🏖️ {name}'s vacation has started. Still to do before leaving:\n{items}"
         ),
     },
     "de": {
         "help": (
-            "🧹 Haushalts-Bot\n\n"
-            "Alltag:\n"
+            "🧹 Haushalts-Bot – Befehle\n\n"
+            "Im Alltag:\n"
             "- 📋 liste · liste erweitert\n"
-            "- ✅ erledigt <Name> [von/für <Person>]\n"
-            "- ↩️ rückgängig <Name>\n"
+            "- ✅ erledigt <Aufgabe> [für <Person>]\n"
+            "- ↩️ rückgängig <Aufgabe>\n"
             "- 👤 name <dein Name>\n\n"
-            "Aufgaben:\n"
-            "- ➕ aufgabe  (geführt)\n"
-            "- ➕ aufgabe <Name> <Plan>\n"
-            "- 📝 todo <Name>  (kein Plan)\n"
-            "- 📝 einmal  (geführt: wann → Uhrzeit → Statistik?)\n"
-            "- ✏️ bearbeite <Name>  (auch löschen)\n"
+            "Aufgaben verwalten:\n"
+            "- ➕ aufgabe  (Schritt für Schritt)\n"
+            "- ➕ aufgabe <Name> <Zeitplan>, z.B. aufgabe Müll jeden Mittwoch\n"
+            "- 📝 todo <Name>  (ohne Zeitplan)\n"
+            "- 📝 einmal  (einmalige Aufgabe, Schritt für Schritt)\n"
+            "- ✏️ bearbeite <Aufgabe>  (ändern oder löschen)\n"
             "Mehr: aufgabe hilfe · bearbeite hilfe\n\n"
             "Außerdem:\n"
             "- 📊 meine statistik · gruppen statistik\n"
             "- 🏖️ urlaub · urlaub hilfe\n"
             "- 🕐 verlauf\n"
+            "- 🎓 anleitung  (alle Abläufe Schritt für Schritt erklärt)\n"
             "🔧 Admin: admin hilfe"
         ),
         "chore_help": (
             "➕ Aufgabe anlegen:\n"
-            "- aufgabe — geführt (Name → Plan → Uhrzeit falls nötig → Bestätigung)\n"
-            "- aufgabe Müll Mittwoch\n"
-            "- aufgabe Bad 1 Stunde\n"
-            "- todo Staubsauger kaufen  (offene Aufgabe, kein Termin)\n"
-            "- einmal — geführt (Name → wann → Uhrzeit → Statistik? → Bestätigung)\n"
-            "- einmal IKEA  (Interview geht weiter)\n"
-            "Einmalaufgaben verschwinden bei Erledigung oder Löschen. Statistik ist optional."
+            "- aufgabe – Schritt für Schritt (Name → Zeitplan → ggf. Uhrzeit → Bestätigung)\n"
+            "- aufgabe Müll jeden Mittwoch\n"
+            "- aufgabe Bad putzen jede Woche\n"
+            "- todo Staubsauger kaufen  (offene Aufgabe ohne Termin)\n"
+            "- einmal – Schritt für Schritt (Name → wann → Uhrzeit → Statistik? → Bestätigung)\n"
+            "- einmal IKEA  (der Bot fragt den Rest nach)\n"
+            "Einmalige Aufgaben verschwinden, sobald sie erledigt oder gelöscht sind. "
+            "Ob sie in der Statistik zählen, entscheidest du."
         ),
         "edit_help": (
-            "✏️ Aufgabe ändern mit: bearbeite <Name>\n"
-            "Dann eine Option: Name, Fälligkeit, Erinnerungszeit, Erledigt-Bestätigung, Wiederholung bei Überfälligkeit, löschen.\n"
+            "✏️ Aufgabe ändern mit: bearbeite <Aufgabe>\n"
+            "Danach wählst du: name, zeitplan, erinnerungszeit, bestätigung, wiederholung oder löschen.\n"
             "Abbrechen jederzeit mit: abbrechen"
         ),
         "setup_choose_language": (
-            "👋 Welcome / Willkommen. First choose this group's language / Wähle zuerst die Sprache dieser Gruppe:\n"
-            "- language en\n"
-            "- sprache deutsch\n"
-            "- sprache englisch"
+            "👋 Willkommen! Wähle zuerst die Sprache für diese Gruppe:\n"
+            "- deutsch\n"
+            "- english"
         ),
         "setup_choose_bot": (
-            "Welcher Bot soll diese Gruppe verwalten?\n"
+            "Welcher Bot soll diese Gruppe betreuen?\n"
             "{options}\n"
-            "Antworte mit: bot <id>"
+            "Antworte mit: bot <Nummer>"
         ),
-        "setup_bot_set": "✅ Diese Gruppe nutzt jetzt: {name} (bot {bot_id}).",
-        "setup_complete": "🎉 Setup fertig. Schnellstart: liste · erledigt <Name> · aufgabe müll jeden Mittwoch",
-        "setup_bot_invalid": "Unbekannter Bot. Antworte mit: bot <id>",
-        "setup_bot_usage": "So geht's: bot <id>",
-        "admin_usage": "🔧 Admin-Optionen: admin hilfe",
+        "setup_bot_set": "✅ Diese Gruppe wird jetzt von {name} betreut (bot {bot_id}).",
+        "setup_complete": "🎉 Alles eingerichtet! Probier zum Beispiel: aufgabe Müll jeden Mittwoch · liste · hilfe\n🎓 Neu hier? Die Anleitung erklärt alles: anleitung",
+        "setup_bot_invalid": "Diesen Bot gibt es nicht. Antworte mit: bot <Nummer>",
+        "setup_bot_usage": "So geht's: bot <Nummer>",
+        "admin_usage": "🔧 Admin-Befehle anzeigen: admin hilfe",
         "admin_help": (
             "🔧 Admin-Befehle:\n"
-            "- 🌐 admin sprache deutsch\n"
+            "- 🌐 admin sprache englisch\n"
             "- 🕒 admin zeitzone Europe/Berlin\n"
             "- 📊 admin statistik\n"
             "- 🔕 admin ruhezeit 00:00-08:00\n"
             "- 🔗 admin signal erinnerung an/aus\n"
             "- 🗑️ admin zurücksetzen"
         ),
-        "admin_only": "Admin-Befehle nutzt du mit: admin <Aktion>",
+        "admin_only": "In Gruppen bitte admin vor diesen Befehl schreiben, z.B.: admin sprache englisch",
         "admin_status": "Gruppenstatus: {chore_count} Aufgabe(n), Sprache: {chat_language}.",
         "stats_header": "📊 Gruppenstatistik:",
         "stats_summary": "- Aufgaben: {chore_count}\n- Erledigungen: {done_count}",
@@ -487,298 +523,332 @@ TEXT = {
         "stats_top_done_header": "Am häufigsten erledigt:",
         "stats_recent_header": "Letzte Aktionen:",
         "stats_none": "Noch keine Daten.",
-        "user_stats_header": "📊 Deine Aufgaben-Statistik:",
-        "user_stats_line": "- Erledigungen: {total}\n- verschiedene Aufgaben: {unique}\n- häufigste: {favorite}\n- zuletzt: {last_done}",
-        "user_stats_by_chore_header": "Wie oft du jede Aufgabe erledigt hast:",
+        "user_stats_header": "📊 Deine Statistik:",
+        "user_stats_line": "- Erledigungen: {total}\n- verschiedene Aufgaben: {unique}\n- am häufigsten: {favorite}\n- zuletzt: {last_done}",
+        "user_stats_by_chore_header": "So oft hast du die einzelnen Aufgaben erledigt:",
         "user_stats_by_chore_line": "- {name}: {count}x",
-        "user_stats_empty": "Du hast noch keine Aufgaben erledigt. Probiere: erledigt <Name>",
-        "task_stats_header": "📊 Aufgaben-Statistik:",
-        "task_stats_line": "- {name}: {count}x gesamt (zuletzt: {last_done} von {who})",
+        "user_stats_empty": "Du hast noch keine Aufgabe erledigt. Probier: erledigt <Aufgabe>",
+        "task_stats_header": "📊 Aufgabenstatistik:",
+        "task_stats_line": "- {name}: {count}x insgesamt (zuletzt: {last_done} von {who})",
         "task_stats_by_person_none": "   noch niemand",
-        "task_stats_empty": "Noch keine Aufgaben. Probiere: aufgabe",
-        "group_stats_header": "📊 Gruppen-Statistik:",
-        "group_stats_summary": "- Aufgaben: {chore_count}\n- Erledigungen gesamt: {done_count}",
+        "task_stats_empty": "Noch keine Aufgaben. Probier: aufgabe",
+        "group_stats_header": "📊 Gruppenstatistik:",
+        "group_stats_summary": "- Aufgaben: {chore_count}\n- Erledigungen insgesamt: {done_count}",
         "group_stats_users_header": "Wer wie viel erledigt hat (alle Aufgaben):",
         "group_stats_users_line": "- {name}: {count}x",
         "group_stats_users_none": "- noch keine Erledigungen",
         "group_stats_chores_header": "Pro Aufgabe:",
-        "group_chore_stats_header": "📊 Gruppen-Statistik für '{name}':",
-        "group_chore_stats_summary": "- Erledigungen gesamt: {count}",
-        "group_chore_stats_users_header": "Wer hat es erledigt:",
+        "group_chore_stats_header": "📊 Gruppenstatistik für '{name}':",
+        "group_chore_stats_summary": "- Erledigungen insgesamt: {count}",
+        "group_chore_stats_users_header": "Wer sie erledigt hat:",
         "group_chore_stats_user_line": "- {name}: {count}x",
         "group_chore_stats_none": "- noch niemand",
         "user_chore_stats_header": "📊 Deine Statistik für '{name}':",
         "user_chore_stats_line": "- Erledigungen: {count}\n- zuletzt: {last_done}",
         "user_chore_stats_none": "Du hast '{name}' noch nicht erledigt.",
         "stats_usage": (
-            "💡 Statistik (breiter → kürzer):\n"
+            "💡 Statistik:\n"
             "• meine statistik\n"
             "• gruppen statistik\n"
             "• gruppen statistik aufgabe <Name>\n"
-            "• gruppen statistik matrix / aufgaben / leute\n"
+            "• gruppen statistik leute / aufgaben / matrix\n"
             "• gruppen statistik alle  (alle Diagramme in einem Bild)\n"
             "• meine statistik diagramm"
         ),
-        "stats_chart_empty": "📈 Noch nicht genug Daten für ein Diagramm.",
-        "stats_chart_unknown": "📈 Unbekanntes Diagramm. Probiere: leute, aufgaben, matrix, alle",
-        "stats_chart_suggest_group": "💡 Auch: gruppen statistik aufgaben · matrix · alle",
+        "stats_chart_empty": "📈 Für ein Diagramm gibt es noch nicht genug Daten.",
+        "stats_chart_unknown": (
+            "📈 Dieses Diagramm gibt es nicht. Probier:\n"
+            "• gruppen statistik leute\n"
+            "• gruppen statistik aufgaben\n"
+            "• gruppen statistik matrix\n"
+            "• gruppen statistik alle"
+        ),
+        "stats_chart_suggest_group": "💡 Außerdem: gruppen statistik aufgaben · matrix · alle",
         "stats_chore_usage": "So geht's: gruppen statistik aufgabe <Name>",
-        "stats_all_charts_header": "📈 Alle Gruppen-Diagramme:",
-        "confirm_add": "Soll '{name}' ({interval}) hinzugefügt werden?\nAntworte: ja, nein oder abbrechen",
+        "stats_all_charts_header": "📈 Alle Gruppendiagramme:",
+        "confirm_add": "'{name}' ({interval}) anlegen?\nAntworte: ja, nein oder abbrechen",
         "edit_options": (
             "Was möchtest du bei '{name}' ändern?\n"
-            "- Name\n"
-            "- Fälligkeit\n"
-            "- Erinnerungszeit\n"
-            "- Erledigt-Bestätigung\n"
-            "- Wiederholung bei Überfälligkeit\n"
+            "- name\n"
+            "- zeitplan\n"
+            "- erinnerungszeit\n"
+            "- bestätigung\n"
+            "- wiederholung\n"
             "- löschen\n"
-            "Antworte mit einer Option oder abbrechen."
+            "Antworte mit einer Option oder mit abbrechen."
         ),
-        "edit_choose_option": "Wähle eine Option oben, oder abbrechen.",
-        "edit_new_name": "Wie soll '{name}' jetzt heißen?\nAntworte mit dem neuen Namen oder abbrechen.",
-        "edit_new_schedule": "Wie oft muss '{name}' erledigt werden?\nBeispiele: jede Stunde, jeden Mittwoch, keine Erinnerung.\nAntworte mit dem Plan oder abbrechen.",
+        "edit_choose_option": "Bitte wähle eine der Optionen oben oder antworte mit abbrechen.",
+        "edit_new_name": "Wie soll '{name}' künftig heißen?\nAntworte mit dem neuen Namen oder mit abbrechen.",
+        "edit_new_schedule": (
+            "Wie oft ist '{name}' fällig?\n"
+            "Beispiele: jeden Tag, alle 2 Wochen, jeden Mittwoch, ohne zeitplan.\n"
+            "Antworte mit dem Zeitplan oder mit abbrechen."
+        ),
         "edit_new_remind_time": (
-            "Zu welcher Uhrzeit soll '{name}' erinnert werden?\n"
-            "Beispiele: 08:00, 19:45, jederzeit (Standard 08:00).\n"
-            "Antworte mit einer Uhrzeit oder abbrechen."
+            "Um wie viel Uhr soll der Bot an '{name}' erinnern?\n"
+            "Beispiele: 08:00, 19:45 – oder egal (dann 08:00).\n"
+            "Antworte mit einer Uhrzeit oder mit abbrechen."
         ),
-        "edit_new_confirmation": "Muss '{name}' als erledigt bestätigt werden?\nAntworte: ja, nein oder abbrechen",
-        "edit_new_repeat": "Wie oft soll die Erinnerung wiederholt werden, solange '{name}' überfällig ist?\nAntworte mit einem Plan oder abbrechen.",
-        "edit_confirm_delete": "'{name}' inklusive Verlauf löschen?\nAntworte: ja, nein oder abbrechen",
-        "edit_delete_cancelled": "Löschen abgebrochen. '{name}' bleibt erhalten.",
-        "usage_edit": "So geht's: bearbeite <Aufgabenname>",
-        "no_pending_add": "Es wartet keine Aufgabe auf Bestätigung.",
+        "edit_new_confirmation": "Muss '{name}' als erledigt abgehakt werden?\nAntworte: ja, nein oder abbrechen",
+        "edit_new_repeat": (
+            "Wie oft soll der Bot erneut erinnern, solange '{name}' überfällig ist?\n"
+            "Beispiele: 1 Stunde, 8 Stunden.\n"
+            "Antworte mit einem Abstand oder mit abbrechen."
+        ),
+        "edit_confirm_delete": "'{name}' samt Verlauf löschen?\nAntworte: ja, nein oder abbrechen",
+        "edit_delete_cancelled": "Löschen abgebrochen. '{name}' bleibt bestehen.",
+        "usage_edit": "So geht's: bearbeite <Aufgabe>",
+        "no_pending_add": "Es wartet keine neue Aufgabe auf Bestätigung.",
         "cancelled": "↩️ Abgebrochen.",
         "confirm_expected": "Bitte antworte mit ja, nein oder abbrechen.",
         "setup_chore_name": "Wie heißt die Aufgabe?\nAntworte mit dem Namen oder mit abbrechen.",
         "setup_chore_schedule": (
-            "Wie oft muss '{name}' erledigt werden?\n"
-            "Beispiele: jede Stunde (antworte: 1 Stunde), alle 2 Monate (antworte: 2 Monate), "
-            "jeden Mittwoch (antworte: Mittwoch).\n"
-            "Für eine offene Aufgabe ohne Termin antworte: kein plan\n"
-            "Antworte mit dem Plan oder abbrechen."
+            "Wie oft ist '{name}' fällig?\n"
+            "Beispiele: jeden Tag, alle 2 Wochen, jeden Mittwoch.\n"
+            "Für eine offene Aufgabe ohne festen Termin antworte: ohne zeitplan\n"
+            "Antworte mit dem Zeitplan oder mit abbrechen."
         ),
         "setup_chore_remind_time": (
-            "Zu welcher Uhrzeit soll '{name}' erinnert werden (Gruppen-Zeitzone)?\n"
-            "Beispiele: 08:00, 19:45. Antworte jederzeit für Standard 08:00, oder abbrechen."
+            "Um wie viel Uhr soll der Bot an '{name}' erinnern (Ortszeit der Gruppe)?\n"
+            "Beispiele: 08:00, 19:45 – oder egal (dann 08:00).\n"
+            "Antworte mit einer Uhrzeit oder mit abbrechen."
         ),
-        "setup_chore_confirmation": "Muss '{name}' als erledigt bestätigt werden?\nAntworte: ja, nein oder abbrechen",
+        "setup_chore_confirmation": (
+            "Muss '{name}' als erledigt abgehakt werden?\n"
+            "Wenn ja, erinnert der Bot erneut, solange die Aufgabe überfällig ist.\n"
+            "Antworte: ja, nein oder abbrechen"
+        ),
         "setup_chore_repeat": (
-            "Wie oft soll die Erinnerung wiederholt werden, solange '{name}' überfällig ist?\n"
-            "Antworte mit einem Plan, Standard ({default_interval}) oder abbrechen."
+            "Wie oft soll der Bot erneut erinnern, solange '{name}' überfällig ist?\n"
+            "Antworte mit einem Abstand (z.B. 1 Stunde), mit standard ({default_interval}) oder mit abbrechen."
         ),
-        "no_chores": "📋 Noch keine Aufgaben eingerichtet. Starte mit: aufgabe Geschirr 1 Stunde · oder offen: todo Milch kaufen",
+        "no_chores": "📋 Noch keine Aufgaben. Leg eine an, z.B.: aufgabe Geschirr jeden Tag · oder ohne Termin: todo Milch kaufen",
         "chores_header": "📋 Aufgaben:",
         "chores_header_extended": "📋 Aufgaben (Details):",
         "list_extend_tip": "Details: liste erweitert",
         "open_task_short": "offen",
         "reminder_label": "Erinnerung",
         "reminder_time_label": "Erinnerungszeit",
-        "open_task_label": "offene Aufgabe · kein Plan · jederzeit erledigbar",
-        "confirmation_required": "Erledigt-Bestätigung: ja",
-        "repeat_reminder_label": "Wiederholung bei Überfälligkeit",
-        "confirmation_required_no_reminder": "kann trotzdem als erledigt markiert werden",
-        "confirmation_not_required": "Erledigt-Bestätigung: nein",
-        "confirmation_set_on": "Erledigt-Bestätigung für '{name}' aktiviert.",
-        "confirmation_set_off": "Erledigt-Bestätigung für '{name}' deaktiviert.",
+        "open_task_label": "offene Aufgabe · kein Zeitplan · jederzeit abhakbar",
+        "confirmation_required": "muss abgehakt werden: ja",
+        "repeat_reminder_label": "erneute Erinnerung bei Überfälligkeit",
+        "confirmation_required_no_reminder": "kann trotzdem abgehakt werden",
+        "confirmation_not_required": "muss abgehakt werden: nein",
+        "confirmation_set_on": "'{name}' muss jetzt als erledigt abgehakt werden.",
+        "confirmation_set_off": "'{name}' muss nicht mehr als erledigt abgehakt werden.",
         "usage_confirmation": "So geht's: bestätigung <Aufgabe> an/aus",
-        "schedule_set": "Fälligkeit für '{name}' auf {interval} gesetzt. Der Verlauf bleibt erhalten.",
-        "usage_schedule": "So geht's: fälligkeit <Aufgabe> <Plan>, z.B. fälligkeit Geschirr jeden Tag",
-        "repeat_set": "Wiederholung bei Überfälligkeit für '{name}' auf {interval} gesetzt.",
-        "usage_repeat": "So geht's: erinnerung <Aufgabe> <Plan>, z.B. erinnerung Geschirr 1 Stunde",
-        "reminder_time_set": "Erinnerungszeit für '{name}' auf {time} gesetzt.",
+        "schedule_set": "Neuer Zeitplan für '{name}': {interval}. Der Verlauf bleibt erhalten.",
+        "usage_schedule": "So geht's: zeitplan <Aufgabe> <Zeitplan>, z.B. zeitplan Geschirr jeden Tag",
+        "repeat_set": "Erneute Erinnerung, solange '{name}' überfällig ist: {interval}.",
+        "usage_repeat": "So geht's: erinnerung <Aufgabe> <Abstand>, z.B. erinnerung Geschirr 1 Stunde",
+        "reminder_time_set": "Erinnerungszeit für '{name}': {time}.",
         "usage_reminder_time": "So geht's: erinnerungszeit <Aufgabe> <HH:MM>, z.B. erinnerungszeit Geschirr 08:00",
-        "quiet_hours_current": "Die Ruhezeit ist {start}-{end} ({timezone}). In dieser Zeit werden keine Erinnerungen gesendet.",
-        "quiet_hours_set": "Die Ruhezeit wurde auf {start}-{end} ({timezone}) gesetzt. In dieser Zeit werden keine Erinnerungen gesendet.",
+        "quiet_hours_current": "Ruhezeit: {start}-{end} Uhr ({timezone}). In dieser Zeit verschickt der Bot keine Erinnerungen.",
+        "quiet_hours_set": "Ruhezeit auf {start}-{end} Uhr ({timezone}) gestellt. In dieser Zeit verschickt der Bot keine Erinnerungen.",
         "usage_quiet_hours": "So geht's: admin ruhezeit 00:00-08:00",
-        "auth_reminder_current": "Signal-Link-Erinnerungen sind {state}.",
-        "auth_reminder_set_on": "Signal-Link-Erinnerungen aktiviert. Der Bot erinnert in dieser Gruppe ungefähr alle 25 Tage.",
-        "auth_reminder_set_off": "Signal-Link-Erinnerungen deaktiviert.",
+        "auth_reminder_current": "Erinnerungen an die Signal-Verknüpfung sind {state}.",
+        "auth_reminder_set_on": "Erinnerungen an die Signal-Verknüpfung sind jetzt aktiviert. Der Bot erinnert diese Gruppe etwa alle 25 Tage.",
+        "auth_reminder_set_off": "Erinnerungen an die Signal-Verknüpfung sind jetzt deaktiviert.",
         "usage_auth_reminder": "So geht's: admin signal erinnerung an/aus",
         "disabled": "deaktiviert",
         "enabled": "aktiviert",
         "no_groups": "Noch keine Gruppen registriert.",
         "groups_header": "Registrierte Gruppen:",
-        "current_language": "Aktuelle Sprache: Deutsch. Ändern mit: sprache englisch",
-        "language_set_en": "Sprache für diesen Chat auf Englisch gesetzt.",
-        "language_set_de": "Sprache für diesen Chat auf Deutsch gesetzt.",
-        "language_usage": "So geht's: sprache deutsch oder sprache englisch",
-        "current_timezone": "Aktuelle Zeitzone: {timezone}. Ändern mit: zeitzone Europe/Berlin",
-        "timezone_set": "Zeitzone auf {timezone} gesetzt. Erinnerungszeiten und Ruhezeit nutzen diese Zone.",
-        "timezone_usage": "So geht's: zeitzone Europe/Berlin (Aliases: berlin, utc, london, paris, ...)",
-        "usage_done": "So geht's: erledigt <Aufgabenname> [von/für <Person>]",
-        "usage_undo_done": "So geht's: rückgängig <Aufgabenname>",
-        "undo_done_saved": "↩️ Letzte Erledigung für '{name}' rückgängig gemacht.",
-        "undo_done_missing": "Keine Erledigung gefunden, die für '{name}' rückgängig gemacht werden kann.",
-        "usage_add": "So geht's: aufgabe <Name> <Plan>, z.B. aufgabe Geschirr 1 Stunde · offen: todo Milch kaufen",
-        "usage_task": "So geht's: todo <Name>, z.B. todo Staubsauger kaufen\nErstellt eine offene Aufgabe ohne Plan — jederzeit erledigbar. Aufgaben müssen vorher angelegt werden (keine freien Duplikate).",
-        "added": "✅ Aufgabe hinzugefügt: {name}. Erinnerung: {interval}.",
-        "added_open_task": "✅ Offene Aufgabe hinzugefügt: {name}. Kein Plan — jederzeit erledigbar mit: erledigt {name}",
-        "added_one_shot": "✅ Einmalaufgabe: {name}. Erinnerung: {interval}. Weg nach Erledigung. Statistik: {stats}. Löschen: lösche {name}",
-        "usage_once": "So geht's: einmal  (geführt)\nOder: einmal <Name> [heute|morgen|Wochentag]\nUhrzeit und Statistik fragt das Interview.",
+        "current_language": "Aktuelle Sprache: Deutsch. Ändern mit: admin sprache englisch",
+        "language_set_en": "Die Sprache für diesen Chat ist jetzt Englisch.",
+        "language_set_de": "Die Sprache für diesen Chat ist jetzt Deutsch.",
+        "language_usage": "So geht's: admin sprache deutsch oder admin sprache englisch",
+        "current_timezone": "Aktuelle Zeitzone: {timezone}. Ändern mit: admin zeitzone Europe/Berlin",
+        "timezone_set": "Zeitzone auf {timezone} gestellt. Erinnerungszeiten und Ruhezeit richten sich danach.",
+        "timezone_usage": "So geht's: admin zeitzone Europe/Berlin (auch möglich: berlin, utc, london, paris, …)",
+        "usage_done": "So geht's: erledigt <Aufgabe> [für <Person>]",
+        "usage_undo_done": "So geht's: rückgängig <Aufgabe>",
+        "undo_done_saved": "↩️ Letzte Erledigung von '{name}' rückgängig gemacht.",
+        "undo_done_missing": "Für '{name}' gibt es keine Erledigung, die rückgängig gemacht werden kann.",
+        "usage_add": "So geht's: aufgabe <Name> <Zeitplan>, z.B. aufgabe Geschirr jeden Tag · ohne Termin: todo Milch kaufen",
+        "usage_task": (
+            "So geht's: todo <Name>, z.B. todo Staubsauger kaufen\n"
+            "Damit legst du eine offene Aufgabe ohne Zeitplan an, die du jederzeit abhaken kannst."
+        ),
+        "added": "✅ Aufgabe angelegt: {name} ({interval}).",
+        "added_open_task": "✅ Offene Aufgabe angelegt: {name}. Ohne Zeitplan – abhaken jederzeit mit: erledigt {name}",
+        "added_one_shot": (
+            "✅ Einmalaufgabe angelegt: {name} ({interval}). Sie verschwindet, sobald sie erledigt ist. "
+            "Zählt in der Statistik: {stats}. Löschen mit: lösche {name}"
+        ),
+        "usage_once": (
+            "So geht's: einmal  (Schritt für Schritt)\n"
+            "Oder: einmal <Name> [heute|morgen|<Wochentag>]\n"
+            "Uhrzeit und Statistik fragt der Bot danach ab."
+        ),
         "setup_once_schedule": (
-            "Wann soll '{name}' einmalig fällig sein?\n"
-            "Beispiele: heute, morgen, Freitag, oder in 2 Stunden.\n"
-            "Antworte mit dem Zeitpunkt oder abbrechen."
+            "Wann soll die einmalige Aufgabe '{name}' erledigt werden?\n"
+            "Beispiele: heute, morgen, Freitag.\n"
+            "Antworte mit dem Tag oder mit abbrechen."
         ),
         "setup_once_remind_time": (
-            "Zu welcher Uhrzeit soll '{name}' erinnern (Gruppen-Zeitzone)?\n"
-            "Beispiele: 08:00, 19:45. Antworte jederzeit für 08:00, oder abbrechen."
+            "Um wie viel Uhr soll der Bot an '{name}' erinnern (Ortszeit der Gruppe)?\n"
+            "Beispiele: 08:00, 19:45 – oder egal (dann 08:00).\n"
+            "Antworte mit einer Uhrzeit oder mit abbrechen."
         ),
         "setup_once_count_stats": (
-            "Soll '{name}' in die Statistik (Einmalaufgaben)?\n"
+            "Soll '{name}' in der Statistik zählen (unter Einmalaufgaben)?\n"
             "Antworte: ja, nein oder abbrechen"
         ),
         "once_short": "einmal",
         "once_stats_yes": "ja",
         "once_stats_no": "nein",
-        "count_in_stats_label": "Statistik",
-        "count_in_stats_yes": "ja · Einmalaufgaben",
+        "count_in_stats_label": "zählt in der Statistik",
+        "count_in_stats_yes": "ja (Einmalaufgaben)",
         "count_in_stats_no": "nein",
-        "already_exists": "Diese Aufgabe gibt es bereits: {name}. Mit 'liste' siehst du alle Aufgaben.",
-        "could_not_add": "Konnte '{name}' nicht hinzufügen. So geht's: aufgabe <Name> <Plan> oder todo <Name>",
-        "usage_delete": "So geht's: lösche <Aufgabenname>",
+        "already_exists": "Die Aufgabe '{name}' gibt es schon. Alle Aufgaben siehst du mit: liste",
+        "could_not_add": "'{name}' konnte nicht angelegt werden. So geht's: aufgabe <Name> <Zeitplan> oder todo <Name>",
+        "usage_delete": "So geht's: lösche <Aufgabe>",
         "deleted": "🗑️ Aufgabe gelöscht: {name}",
-        "not_found": "⚠️ Aufgabe '{name}' nicht gefunden.",
+        "not_found": "⚠️ Die Aufgabe '{name}' wurde nicht gefunden.",
         "usage_change": "So geht's: umbenennen <alter Name> -> <neuer Name>",
-        "no_history": "Noch keine Aufgaben erledigt.",
-        "history_header": "🕐 Letzte Erledigungen:",
-        "history_line": "{idx}. {name} von {sender} am {done_at}",
-        "group_only": "Dieser Befehl funktioniert nur in einer Gruppe.",
+        "no_history": "Es wurde noch keine Aufgabe erledigt.",
+        "history_header": "🕐 Zuletzt erledigt:",
+        "history_line": "{idx}. {name} – {sender}, {done_at}",
+        "group_only": "Dieser Befehl funktioniert nur in Gruppen.",
         "reset_requested": (
-            "Zurücksetzen angefordert. Dadurch werden alle Aufgaben und der Verlauf dieser Gruppe gelöscht.\n"
-            "Zum Bestätigen innerhalb von 10 Minuten senden: admin <Code> zurücksetzen bestätigen {token}\n"
+            "⚠️ Zurücksetzen angefordert. Dabei werden alle Aufgaben und der gesamte Verlauf dieser Gruppe gelöscht.\n"
+            "Zum Bestätigen innerhalb von 10 Minuten senden: admin zurücksetzen bestätigen {token}\n"
             "Zum Abbrechen senden: admin zurücksetzen abbrechen"
         ),
-        "usage_reset_confirm": "So geht's: zurücksetzen bestätigen <Code>",
+        "usage_reset_confirm": "So geht's: admin zurücksetzen bestätigen <Code>",
         "reset_failed": (
-            "Zurücksetzen konnte nicht bestätigt werden. Prüfe, ob der Code korrekt und nicht abgelaufen ist "
-            "und von derselben Person bestätigt wurde."
+            "Zurücksetzen nicht bestätigt. Der Code muss stimmen, darf nicht abgelaufen sein "
+            "und muss von derselben Person kommen, die das Zurücksetzen angefordert hat."
         ),
         "reset_done": "✅ Aufgaben, Verlauf und Erinnerungen dieser Gruppe wurden zurückgesetzt.",
         "did_you_mean": "Meintest du: {command}?",
         "unexpected_error": "⚠️ Beim Verarbeiten deines Befehls ist etwas schiefgelaufen.",
-        "mark_done_missing": "⚠️ Aufgabe '{name}' nicht gefunden. Lege sie zuerst mit aufgabe/todo an, dann erledigt. Mit 'liste' siehst du alle Aufgaben.",
-        "mark_done_saved": "✅ Erledigt gespeichert: {name} am {done_at} von {sender}.\nRückgängig: rückgängig {name}",
-        "mark_done_one_shot": "✅ {name} erledigt am {done_at} von {sender} und entfernt.\nZählt unter Einmalaufgaben.",
-        "mark_done_one_shot_no_stats": "✅ {name} erledigt am {done_at} von {sender} und entfernt.\nZählt nicht in der Statistik.",
-        "done_member_not_found": "⚠️ Ich finde kein Mitglied mit dem Namen '{name}'. Die Person soll zuerst ihren Namen setzen: name <dein Name>.",
-        "ask_display_name": (
-            "Welchen Namen soll ich anzeigen, wenn du Aufgaben erledigst?\n"
-            "Antworte mit deinem Namen oder abbrechen."
+        "mark_done_missing": (
+            "⚠️ Die Aufgabe '{name}' wurde nicht gefunden. Leg sie zuerst mit aufgabe oder todo an. "
+            "Alle Aufgaben siehst du mit: liste"
         ),
-        "display_name_invalid": "Bitte 2-24 Zeichen (Buchstaben, Zahlen, Leerzeichen oder Bindestriche).",
+        "mark_done_saved": "✅ Erledigt: {name} – von {sender} ({done_at}).\nRückgängig: rückgängig {name}",
+        "mark_done_one_shot": "✅ {name} erledigt von {sender} ({done_at}) und von der Liste entfernt.\nZählt in der Statistik unter Einmalaufgaben.",
+        "mark_done_one_shot_no_stats": "✅ {name} erledigt von {sender} ({done_at}) und von der Liste entfernt.\nZählt nicht in der Statistik.",
+        "done_member_not_found": (
+            "⚠️ Ich kenne kein Gruppenmitglied namens '{name}'. "
+            "Die Person muss zuerst ihren Namen festlegen mit: name <Name>"
+        ),
+        "ask_display_name": (
+            "Unter welchem Namen soll ich deine erledigten Aufgaben anzeigen?\n"
+            "Antworte mit deinem Namen oder mit abbrechen."
+        ),
+        "display_name_invalid": "Bitte 2-24 Zeichen verwenden: Buchstaben, Zahlen, Leerzeichen oder Bindestriche.",
         "display_name_saved": "👤 Dein Name ist jetzt: {name}",
         "usage_name": "So geht's: name <dein Name>",
-        "renamed": "✏️ '{old}' wurde in '{new}' umbenannt.",
-        "new_name_empty": "Der neue Aufgabenname darf nicht leer sein.",
-        "rename_missing": "Aufgabe '{name}' existiert nicht.",
-        "rename_exists": "Aufgabe '{name}' existiert bereits.",
+        "renamed": "✏️ '{old}' heißt jetzt '{new}'.",
+        "new_name_empty": "Der neue Name darf nicht leer sein.",
+        "rename_missing": "Die Aufgabe '{name}' gibt es nicht.",
+        "rename_exists": "Die Aufgabe '{name}' gibt es schon.",
         "reminder": (
             "🔔 Erinnerung: '{name}' ist fällig.\n"
-            "Als erledigt markieren: erledigt {name}\n"
-            "💡 hilfe"
+            "Erledigt? Dann schreib: erledigt {name}\n"
+            "💡 Alle Befehle: hilfe"
         ),
         "reminder_no_confirmation": (
             "🔔 Erinnerung: '{name}' ist fällig.\n"
-            "💡 hilfe"
+            "💡 Alle Befehle: hilfe"
         ),
         "auth_reminder": (
-            "🔗 Signal-Link-Erinnerung: Verknüpfte Geräte können nach langer Inaktivität getrennt werden.\n"
-            "Wenn der Bot nicht mehr antwortet, verknüpfe ihn neu: http://127.0.0.1:8080/v1/qrcodelink?device_name=signal-api"
+            "🔗 Hinweis zur Signal-Verknüpfung: Verknüpfte Geräte können nach längerer Inaktivität getrennt werden.\n"
+            "Falls der Bot nicht mehr antwortet, muss er neu verknüpft werden: http://127.0.0.1:8080/v1/qrcodelink?device_name=signal-api"
         ),
         "vacation_help": (
             "🏖️ Urlaubsmodus:\n"
-            "- urlaub — geführtes Setup (jetzt oder in X Tagen, dann Dauer)\n"
-            "- urlaub 14 tage — ab sofort für 14 Tage\n"
-            "- urlaub in 3 tagen für 14 tage — vorausplanen\n"
-            "- urlaub status — deinen Urlaub anzeigen\n"
-            "- urlaub abbrechen — geplanten/aktiven Urlaub beenden\n"
-            "- urlaub aufgabe — Vor-Urlaubs-Aufgabe hinzufügen\n"
+            "- urlaub – Schritt für Schritt (ab jetzt oder in X Tagen, dann die Dauer)\n"
+            "- urlaub 14 tage – ab sofort für 14 Tage\n"
+            "- urlaub in 3 tagen für 14 tage – im Voraus planen\n"
+            "- urlaub status – deinen Urlaub anzeigen\n"
+            "- urlaub abbrechen – geplanten oder laufenden Urlaub beenden\n"
+            "- urlaub aufgabe – Vorbereitungsaufgabe hinzufügen\n"
             "- urlaub aufgabe Kühlschrank leeren\n"
-            "- urlaub liste — Vor-Urlaubs-Aufgaben anzeigen\n"
+            "- urlaub liste – Vorbereitungsaufgaben anzeigen\n"
             "- urlaub lösche <Name>\n"
-            "- urlaub erledigt <Name> — Vor-Urlaubs-Aufgabe bestätigen\n"
-            "- urlaub überspringen — restliche Vor-Urlaubs-Aufgaben überspringen\n"
-            "Während des Urlaubs entfallen Aufgaben-Erinnerungen. "
-            "Danach geht der normale Plan weiter — z.B. eine wöchentliche Freitags-Aufgabe "
-            "erinnert am nächsten Freitag nach dem Urlaub, nicht am Rückreisetag."
+            "- urlaub erledigt <Name> – Vorbereitungsaufgabe abhaken\n"
+            "- urlaub überspringen – restliche Vorbereitungsaufgaben überspringen\n"
+            "Während des Urlaubs gibt es keine Aufgaben-Erinnerungen. Danach läuft der normale Zeitplan weiter – "
+            "eine wöchentliche Freitagsaufgabe meldet sich z.B. erst am ersten Freitag nach dem Urlaub, "
+            "nicht am Tag der Rückkehr."
         ),
         "vacation_setup_when": (
-            "🏖️ Urlaub — wann geht es los?\n"
-            "Antworte: jetzt, in 3 tagen, oder abbrechen"
+            "🏖️ Urlaub – wann geht es los?\n"
+            "Antworte: jetzt, in 3 tagen oder abbrechen"
         ),
         "vacation_setup_duration": (
             "🏖️ Wie lange dauert der Urlaub?\n"
-            "Antworte mit einer Dauer, z.B. 14 tage, 2 wochen, oder abbrechen"
+            "Antworte mit einer Dauer, z.B. 14 tage oder 2 wochen – oder mit abbrechen"
         ),
         "vacation_setup_chore_name": (
-            "🏖️ Name der Vor-Urlaubs-Aufgabe?\n"
-            "Antworte mit dem Namen oder abbrechen"
+            "🏖️ Wie heißt die Vorbereitungsaufgabe?\n"
+            "Antworte mit dem Namen oder mit abbrechen"
         ),
-        "vacation_usage": "🏖️ Probiere: urlaub, urlaub 14 tage, oder urlaub hilfe",
-        "vacation_duration_invalid": "Dauer nicht erkannt. Beispiel: 14 tage oder 2 wochen",
-        "vacation_when_invalid": "Antworte mit jetzt, in 3 tagen, oder abbrechen",
-        "vacation_chore_added": "Vor-Urlaubs-Aufgabe hinzugefügt: {name}",
-        "vacation_chore_exists": "Vor-Urlaubs-Aufgabe '{name}' existiert bereits",
-        "vacation_chore_deleted": "Vor-Urlaubs-Aufgabe gelöscht: {name}",
-        "vacation_chore_not_found": "Vor-Urlaubs-Aufgabe nicht gefunden: {name}",
-        "vacation_chore_list_empty": "Noch keine Vor-Urlaubs-Aufgaben. Hinzufügen mit: urlaub aufgabe",
-        "vacation_chore_list": "Vor-Urlaubs-Aufgaben:\n{items}",
-        "vacation_none": "Du hast keinen geplanten oder aktiven Urlaub.",
-        "vacation_cancelled": "Urlaub abgebrochen. Aufgaben-Pläne laufen wie zuvor weiter.",
-        "vacation_nothing_to_cancel": "Du hast keinen Urlaub zum Abbrechen.",
-        "vacation_prep_done": "Vor-Urlaubs-Aufgabe erledigt: {name}",
-        "vacation_prep_not_found": "Vor-Urlaubs-Aufgabe nicht gefunden oder Urlaub nicht in Vorbereitung: {name}",
-        "vacation_prep_skipped": "Vor-Urlaubs-Checkliste übersprungen. Urlaub ist aktiv, Erinnerungen pausiert.",
-        "vacation_prep_skip_unavailable": "Keine Vor-Urlaubs-Checkliste zum Überspringen.",
+        "vacation_usage": "🏖️ Probier: urlaub, urlaub 14 tage oder urlaub hilfe",
+        "vacation_duration_invalid": "Diese Dauer verstehe ich nicht. Beispiel: 14 tage oder 2 wochen",
+        "vacation_when_invalid": "Bitte antworte mit jetzt, in 3 tagen oder abbrechen",
+        "vacation_chore_added": "Vorbereitungsaufgabe hinzugefügt: {name}",
+        "vacation_chore_exists": "Die Vorbereitungsaufgabe '{name}' gibt es schon.",
+        "vacation_chore_deleted": "Vorbereitungsaufgabe gelöscht: {name}",
+        "vacation_chore_not_found": "Vorbereitungsaufgabe nicht gefunden: {name}",
+        "vacation_chore_list_empty": "Noch keine Vorbereitungsaufgaben. Hinzufügen mit: urlaub aufgabe",
+        "vacation_chore_list": "Vorbereitungsaufgaben:\n{items}",
+        "vacation_none": "Du hast keinen geplanten oder laufenden Urlaub.",
+        "vacation_cancelled": "Urlaub abgebrochen. Die Aufgaben laufen wie gewohnt weiter.",
+        "vacation_nothing_to_cancel": "Du hast keinen Urlaub, der abgebrochen werden kann.",
+        "vacation_prep_done": "Vorbereitungsaufgabe erledigt: {name}",
+        "vacation_prep_not_found": "Vorbereitungsaufgabe nicht gefunden oder der Urlaub ist nicht in der Vorbereitung: {name}",
+        "vacation_prep_skipped": "Vorbereitung übersprungen. Der Urlaub läuft, die Erinnerungen sind pausiert.",
+        "vacation_prep_skip_unavailable": "Es gibt keine Vorbereitung, die übersprungen werden kann.",
         "vacation_scheduled": (
             "🏖️ Urlaub geplant.\n"
-            "Start: {starts}\n"
+            "Beginn: {starts}\n"
             "Ende: {ends}\n"
             "Dauer: {duration}\n"
-            "Erinnerungen pausieren beim Start."
+            "Ab Beginn sind die Erinnerungen pausiert."
         ),
         "vacation_started_active": (
-            "🏖️ Urlaub gestartet.\n"
+            "🏖️ Der Urlaub hat begonnen.\n"
             "Ende: {ends}\n"
             "Dauer: {duration}\n"
-            "Aufgaben-Erinnerungen entfallen bis dahin. "
-            "Danach geht der normale Plan nahtlos weiter."
+            "Bis dahin gibt es keine Aufgaben-Erinnerungen. Danach läuft der normale Zeitplan weiter."
         ),
         "vacation_started_prep": (
-            "🏖️ Urlaub gestartet — erledige zuerst diese Vor-Urlaubs-Aufgaben:\n"
+            "🏖️ Der Urlaub beginnt – erledige vorher noch diese Aufgaben:\n"
             "{items}\n\n"
-            "Bestätigen mit: urlaub erledigt <Name>\n"
-            "Oder alles überspringen mit: urlaub überspringen\n\n"
-            "Aufgaben-Erinnerungen sind bis Urlaubsende pausiert."
+            "Abhaken mit: urlaub erledigt <Name>\n"
+            "Oder alle überspringen mit: urlaub überspringen\n\n"
+            "Bis zum Ende des Urlaubs sind die Aufgaben-Erinnerungen pausiert."
         ),
         "vacation_status_scheduled": (
             "🏖️ Geplanter Urlaub\n"
-            "Start: {starts}\n"
+            "Beginn: {starts}\n"
             "Ende: {ends}\n"
             "Dauer: {duration}"
         ),
         "vacation_status_prep": (
-            "🏖️ Urlaub (Abreise-Checkliste)\n"
+            "🏖️ Urlaub (Vorbereitung)\n"
             "Ende: {ends}\n"
             "Noch offen:\n{items}"
         ),
         "vacation_status_active": (
-            "🏖️ Aktiver Urlaub\n"
+            "🏖️ Urlaub läuft\n"
             "Ende: {ends}\n"
-            "Aufgaben-Erinnerungen entfallen. Danach normaler Plan."
+            "Bis dahin keine Aufgaben-Erinnerungen, danach läuft der normale Zeitplan weiter."
         ),
         "vacation_ended_notice": (
-            "🏖️ {name}s Urlaub ist vorbei. Aufgaben-Erinnerungen folgen wieder dem normalen Plan."
+            "🏖️ Der Urlaub von {name} ist vorbei. Die Aufgaben-Erinnerungen laufen wieder nach dem normalen Zeitplan."
         ),
         "vacation_started_notice": (
-            "🏖️ {name}s Urlaub hat begonnen. Erinnerungen entfallen bis {ends}, "
-            "danach normaler Plan."
+            "🏖️ Der Urlaub von {name} hat begonnen. Bis {ends} gibt es keine Erinnerungen, "
+            "danach läuft der normale Zeitplan weiter."
         ),
         "vacation_started_prep_notice": (
-            "🏖️ {name}s Urlaub hat begonnen. Vor-Urlaubs-Aufgaben:\n{items}"
+            "🏖️ Der Urlaub von {name} hat begonnen. Vorher noch zu erledigen:\n{items}"
         ),
     },
 }
@@ -824,12 +894,18 @@ def _stats_reply(reply: str, attachments: list[str] | None = None) -> str | dict
     return reply
 
 
+def _stats_time(storage: Storage, scope_id: str, value: str | None, language: str) -> str:
+    if not value:
+        return "never" if language == "en" else "nie"
+    return _format_list_timestamp(value, storage.get_timezone(scope_id))
+
+
 def _format_user_stats(storage: Storage, scope_id: str, sender: str, language: str) -> str:
     stats = storage.user_stats(scope_id, sender)
     if stats["total_completions"] == 0:
         return _text(language, "user_stats_empty")
     favorite = _stats_display_name(stats["top_chore"]["name"], language) if stats["top_chore"] else ("n/a" if language == "en" else "k.A.")
-    last_done = stats["last_done_at"] or ("never" if language == "en" else "nie")
+    last_done = _stats_time(storage, scope_id, stats["last_done_at"], language)
     summary = _text(
         language,
         "user_stats_line",
@@ -888,7 +964,7 @@ def _format_group_stats(storage: Storage, scope_id: str, language: str) -> str:
             if row["last_done_by"]
             else ("nobody" if language == "en" else "niemand")
         )
-        last_done = row["last_done_at"] or ("never" if language == "en" else "nie")
+        last_done = _stats_time(storage, scope_id, row["last_done_at"], language)
         lines = [
             _text(
                 language,
@@ -954,7 +1030,7 @@ def _format_user_chore_stats(storage: Storage, scope_id: str, sender: str, langu
             return _text(language, "user_chore_stats_none", name=label)
         return mobile_blocks(
             _text(language, "user_chore_stats_header", name=label),
-            _text(language, "user_chore_stats_line", count=match["count"], last_done=stats["last_done_at"] or ("never" if language == "en" else "nie")),
+            _text(language, "user_chore_stats_line", count=match["count"], last_done=_stats_time(storage, scope_id, stats["last_done_at"], language)),
         )
     canonical = storage._find_chore_case_insensitive(scope_id, chore_name)
     if canonical is None:
@@ -963,11 +1039,11 @@ def _format_user_chore_stats(storage: Storage, scope_id: str, sender: str, langu
     match = next((row for row in stats["by_chore"] if row["name"].lower() == canonical["name"].lower()), None)
     if match is None:
         return _text(language, "user_chore_stats_none", name=canonical["name"])
-    last_done = stats["last_done_at"] or ("never" if language == "en" else "nie")
+    last_done = _stats_time(storage, scope_id, stats["last_done_at"], language)
     # Prefer last done for this chore if available from task_stats
     task_row = next((item for item in storage.task_stats(scope_id) if item["name"] == canonical["name"]), None)
     if task_row and task_row.get("last_done_by") == sender and task_row.get("last_done_at"):
-        last_done = task_row["last_done_at"]
+        last_done = _stats_time(storage, scope_id, task_row["last_done_at"], language)
     return mobile_blocks(
         _text(language, "user_chore_stats_header", name=canonical["name"]),
         _text(language, "user_chore_stats_line", count=match["count"], last_done=last_done),
@@ -1762,7 +1838,7 @@ def _format_duration(total_seconds: float, language: str) -> str:
     parts = []
     if language == "de":
         if days:
-            parts.append(f"{days} {'Tag' if days == 1 else 'Tage'}")
+            parts.append(f"{days} {'Tag' if days == 1 else 'Tagen'}")
         if hours:
             parts.append(f"{hours} {'Stunde' if hours == 1 else 'Stunden'}")
         if mins and not days:
@@ -1824,8 +1900,8 @@ def _format_due_status(
     if due_at <= now:
         duration = _format_duration((now - due_at).total_seconds(), language)
         if language == "de":
-            return f"überfällig seit: {duration} (fällig seit {_format_list_timestamp(due_at, tz_name)})"
-        return f"overdue by {duration} (due since {_format_list_timestamp(due_at, tz_name)})"
+            return f"überfällig seit {duration} (fällig war {_format_list_timestamp(due_at, tz_name)})"
+        return f"overdue by {duration} (was due {_format_list_timestamp(due_at, tz_name)})"
 
     duration = _format_duration((due_at - now).total_seconds(), language)
     if language == "de":
@@ -1910,7 +1986,9 @@ def _parse_history_limit(raw: str) -> int:
         return 20
 
 
-def _format_mark_done_message(ok: bool, msg: str, chore_name: str, language: str) -> str:
+def _format_mark_done_message(
+    ok: bool, msg: str, chore_name: str, language: str, tz_name: str | None = None
+) -> str:
     if ok:
         for prefix, key in (
             ("One-shot no-stats saved: ", "mark_done_one_shot_no_stats"),
@@ -1927,7 +2005,7 @@ def _format_mark_done_message(ok: bool, msg: str, chore_name: str, language: str
                     language,
                     key,
                     name=name_part.strip(),
-                    done_at=done_at.strip(),
+                    done_at=_format_list_timestamp(done_at.strip(), tz_name),
                     sender=sender.strip(),
                 )
         if language == "en":
@@ -1976,9 +2054,9 @@ def _action_label(action_type: str, language: str) -> str:
             "set_language": "Sprache geändert",
             "set_timezone": "Zeitzone geändert",
             "set_quiet_hours": "Ruhezeit geändert",
-            "set_repeat_reminder": "Wiederholung bei Überfälligkeit geändert",
+            "set_repeat_reminder": "erneute Erinnerung geändert",
             "set_reminder_time": "Erinnerungszeit geändert",
-            "set_schedule": "Fälligkeit geändert",
+            "set_schedule": "Zeitplan geändert",
             "undo_done": "Erledigung rückgängig gemacht",
         },
     }
@@ -2049,7 +2127,7 @@ def _handle_pending_member_name(storage: Storage, text: str, sender: str, scope_
     ok, msg = storage.mark_done(scope_id, chore_name, sender)
     if ok:
         storage.log_action(scope_id, sender, "done", chore_name)
-    return _format_mark_done_message(ok, msg, chore_name, language)
+    return _format_mark_done_message(ok, msg, chore_name, language, storage.get_timezone(scope_id))
 
 
 def _handle_pending_chore_edit(storage: Storage, text: str, sender: str, scope_id: str, language: str) -> str | None:
@@ -2719,6 +2797,7 @@ COMMAND_HINTS = {
         "vacation",
         "vacation help",
         "history",
+        "tutorial",
         "chore help",
         "edit help",
         "delete",
@@ -2742,12 +2821,29 @@ COMMAND_HINTS = {
         "urlaub",
         "urlaub hilfe",
         "verlauf",
+        "anleitung",
         "aufgabe hilfe",
         "bearbeite hilfe",
         "lösche",
         "abbrechen",
         "statistik",
         "admin hilfe",
+    ),
+}
+
+# A command word sent on its own gets its usage line instead of silence or a
+# misparse (e.g. "undo done" read as undoing a chore called "done").
+_BARE_COMMAND_USAGE = {
+    **dict.fromkeys(("done", "erledigt"), "usage_done"),
+    **dict.fromkeys(("undo", "undo done", "revoke", "revoke done", "rueckgaengig", "rückgängig"), "usage_undo_done"),
+    **dict.fromkeys(("rename", "change chore", "umbenennen"), "usage_change"),
+    **dict.fromkeys(("schedule", "due", "zeitplan", "faelligkeit", "fälligkeit"), "usage_schedule"),
+    **dict.fromkeys(("reminder", "repeat", "remind", "erinnerung", "wiederholen"), "usage_repeat"),
+    **dict.fromkeys(("reminder time", "remind time", "erinnerungszeit"), "usage_reminder_time"),
+    **dict.fromkeys(("confirmation", "bestaetigung", "bestätigung"), "usage_confirmation"),
+    **dict.fromkeys(
+        ("reset group confirm", "zuruecksetzen bestaetigen", "zurücksetzen bestätigen"),
+        "usage_reset_confirm",
     ),
 }
 
@@ -2828,7 +2924,6 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
                     storage.log_action(scope_id, sender, "set_bot", details=bot_id)
                     return [
                         _text(language_request, f"language_set_{language_request}"),
-                        _text(language_request, "setup_bot_set", name=bots[bot_id], bot_id=bot_id),
                         _text(language_request, "setup_complete"),
                     ]
                 return [
@@ -2900,6 +2995,10 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
     if command_lowered in {"help", "hilfe", "?"}:
         return _text(_help_language(storage, scope_id, text, language), "help")
 
+    tutorial_topic = parse_tutorial_command(command_lowered)
+    if tutorial_topic is not None:
+        return tutorial_text(_help_language(storage, scope_id, text, language), tutorial_topic)
+
     if command_lowered in {
         "chore help",
         "chores help",
@@ -2923,7 +3022,7 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
     }:
         return _text(_help_language(storage, scope_id, text, language), "edit_help")
 
-    if admin_seen and command_lowered in {"status", "admin stats", "admin statistik"}:
+    if admin_seen and command_lowered in {"status", "stats", "statistik"}:
         return _format_stats(storage, scope_id, language)
 
     auth_reminder_command = _parse_auth_reminder_command(command_text)
@@ -3150,6 +3249,10 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
     if pending_edit_reply is not None:
         return pending_edit_reply
 
+    bare_usage_key = _BARE_COMMAND_USAGE.get(" ".join(command_lowered.split()))
+    if bare_usage_key:
+        return _text(language, bare_usage_key)
+
     if command_lowered in {"edit", "bearbeite", "aendere", "ändere"}:
         return _text(language, "usage_edit")
     edit_name = _edit_command_name(command_text)
@@ -3172,8 +3275,6 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
         if "No completion" in msg:
             return _text(language, "undo_done_missing", name=undo_name)
         return _text(language, "not_found", name=undo_name)
-    if command_lowered in {"undo", "undo done", "revoke", "rueckgaengig", "rückgängig"}:
-        return _text(language, "usage_undo_done")
 
     done_name = _strip_prefixed_value(command_text, ("done ", "erledigt "))
     if done_name:
@@ -3196,7 +3297,7 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
             sender,
             language,
             "done",
-            _format_mark_done_message(ok, msg, chore_name, language),
+            _format_mark_done_message(ok, msg, chore_name, language, storage.get_timezone(scope_id)),
         )
 
     name_value = _strip_prefixed_value(command_text, ("name ", "my name ", "mein name "))

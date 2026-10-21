@@ -8,6 +8,21 @@ from typing import Any, List, Optional
 
 from scrape_types import NOTIFY_CHANGE_FIELDS, TRACKED_FIELDS, ScrapeResult
 from dialogue_utils import STALE_STEP, dialogue_ttl_minutes, is_dialogue_stale
+import scope_migration
+
+_IN_SCOPE = "scope_id = ?"
+
+# No member names are kept here, so nothing can be claimed after a move; the
+# person completing the move becomes admin of the new group.
+MIGRATION = scope_migration.MigrationSpec(
+    scope_tables=("chat_admins", "chat_settings", "command_usage", "custom_hosts", "listings"),
+    transient_tables=("pending_listing_adds",),
+    person_columns=(
+        ("chat_admins", "sender", _IN_SCOPE),
+        ("command_usage", "sender", _IN_SCOPE),
+        ("listings", "added_by", _IN_SCOPE),
+    ),
+)
 
 
 class Storage:
@@ -20,6 +35,28 @@ class Storage:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+    def move_scope(self, old_scope: str, new_scope: str, old_group_id: str | None, new_group_id: str | None) -> None:
+        with self._connect() as conn:
+            scope_migration.move_scope(conn, MIGRATION, old_scope, new_scope, old_group_id, new_group_id)
+            conn.commit()
+
+    def migration_members(self, scope_id: str) -> list[dict]:
+        with self._connect() as conn:
+            return scope_migration.list_members(conn, MIGRATION, scope_id)
+
+    def merge_member(self, scope_id: str, old_sender: str, new_sender: str) -> None:
+        with self._connect() as conn:
+            scope_migration.merge_member(conn, MIGRATION, scope_id, old_sender, new_sender)
+            conn.commit()
+
+    def is_admin(self, scope_id: str, sender: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM chat_admins WHERE scope_id = ? AND sender = ?",
+                (scope_id, sender),
+            ).fetchone()
+        return row is not None
 
     def _ensure_column(self, conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
         columns = conn.execute(f"PRAGMA table_info({table})").fetchall()

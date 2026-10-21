@@ -19,6 +19,44 @@ from schedule_utils import (
 )
 from display_names import default_display_name, is_opaque_sender, is_valid_display_name
 from dialogue_utils import STALE_STEP, dialogue_ttl_minutes, is_dialogue_stale
+import scope_migration
+
+_IN_SCOPE = "scope_id = ?"
+
+MIGRATION = scope_migration.MigrationSpec(
+    scope_tables=(
+        "action_logs",
+        "admin_setup_codes",
+        "chat_admins",
+        "chat_settings",
+        "chore_logs",
+        "chores",
+        "command_usage",
+        "member_names",
+        "member_vacations",
+        "vacation_chores",
+    ),
+    transient_tables=(
+        "pending_chore_adds",
+        "pending_chore_edits",
+        "pending_chore_setups",
+        "pending_member_names",
+        "pending_vacation_chore_adds",
+        "pending_vacation_setups",
+        "reset_requests",
+    ),
+    person_columns=(
+        ("action_logs", "sender", _IN_SCOPE),
+        ("chat_admins", "sender", _IN_SCOPE),
+        ("chore_logs", "sender", _IN_SCOPE),
+        ("command_usage", "sender", _IN_SCOPE),
+        ("member_names", "sender", _IN_SCOPE),
+        ("member_vacations", "sender", _IN_SCOPE),
+        ("vacation_prep_done", "sender", "vacation_id IN (SELECT id FROM member_vacations WHERE scope_id = ?)"),
+    ),
+    member_query="SELECT sender, display_name FROM member_names WHERE scope_id = ? ORDER BY display_name",
+    scoped_state_keys=("last_auth_reminder_at",),
+)
 
 
 class Storage:
@@ -31,6 +69,20 @@ class Storage:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+    def move_scope(self, old_scope: str, new_scope: str, old_group_id: str | None, new_group_id: str | None) -> None:
+        with self._connect() as conn:
+            scope_migration.move_scope(conn, MIGRATION, old_scope, new_scope, old_group_id, new_group_id)
+            conn.commit()
+
+    def migration_members(self, scope_id: str) -> list[dict]:
+        with self._connect() as conn:
+            return scope_migration.list_members(conn, MIGRATION, scope_id)
+
+    def merge_member(self, scope_id: str, old_sender: str, new_sender: str) -> None:
+        with self._connect() as conn:
+            scope_migration.merge_member(conn, MIGRATION, scope_id, old_sender, new_sender)
+            conn.commit()
 
     def _init_db(self) -> None:
         with self._connect() as conn:

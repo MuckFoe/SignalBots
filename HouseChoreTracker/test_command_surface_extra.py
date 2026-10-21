@@ -45,7 +45,7 @@ class ExtraCommandSurfaceTests(unittest.TestCase):
                     self.group_id,
                 )
             )
-        self.assertIn("Setup complete", reply)
+        self.assertIn("All set", reply)
         self.assertTrue(self.storage.is_group_ready(self.scope))
 
     def test_english_group_setup_and_command_flow(self) -> None:
@@ -133,8 +133,8 @@ class ExtraCommandSurfaceTests(unittest.TestCase):
     def test_cancel_mid_edit_keeps_original_chore(self) -> None:
         self._setup_english_group()
         handle_command(self.storage, "add bins Thursday", self.alice, self.scope, self.group_id)
-        self.assertIn("What do you want to edit", _text(handle_command(self.storage, "edit bins", self.alice, self.scope, self.group_id)))
-        self.assertIn("due schedule", _text(handle_command(self.storage, "schedule", self.alice, self.scope, self.group_id)))
+        self.assertIn("What do you want to change", _text(handle_command(self.storage, "edit bins", self.alice, self.scope, self.group_id)))
+        self.assertIn("How often is", _text(handle_command(self.storage, "schedule", self.alice, self.scope, self.group_id)))
         self.assertIn("Cancelled", _text(handle_command(self.storage, "cancel", self.alice, self.scope, self.group_id)))
 
         row = self.storage.list_chores(self.scope)[0]
@@ -150,7 +150,7 @@ class ExtraCommandSurfaceTests(unittest.TestCase):
 
     def test_help_pointers_are_real_commands_in_both_languages(self) -> None:
         self._setup_english_group()
-        self.assertIn("Add a chore", _text(handle_command(self.storage, "chore help", self.alice, self.scope, self.group_id)))
+        self.assertIn("Adding chores", _text(handle_command(self.storage, "chore help", self.alice, self.scope, self.group_id)))
         self.assertIn("Change a chore", _text(handle_command(self.storage, "edit help", self.alice, self.scope, self.group_id)))
 
         german_scope = "dm:german"

@@ -65,7 +65,7 @@ class CommandSurfaceTests(unittest.TestCase):
             max_user = "sender-max"
 
             setup = _text(handle_command(storage, "sprache deutsch", anna, scope, group_id))
-            self.assertIn("Setup fertig", setup)
+            self.assertIn("Alles eingerichtet", setup)
             self.assertIn("liste", setup)
             self.assertIn("aufgabe", setup.lower())
 
@@ -86,7 +86,7 @@ class CommandSurfaceTests(unittest.TestCase):
             asked_time = _text(handle_command(storage, "Mittwoch", anna, scope, group_id))
             self.assertIn("Uhrzeit", asked_time)
             asked_confirm = _text(handle_command(storage, "19:45", anna, scope, group_id))
-            self.assertIn("bestätigt", asked_confirm)
+            self.assertIn("abgehakt", asked_confirm)
             added = _text(handle_command(storage, "ja", anna, scope, group_id))
             self.assertIn("Biokiste rausstellen", added)
 
@@ -97,7 +97,7 @@ class CommandSurfaceTests(unittest.TestCase):
 
             open_task = _text(handle_command(storage, "todo Milch kaufen", anna, scope, group_id))
             self.assertIn("Milch kaufen", open_task)
-            self.assertIn("Kein Plan", open_task)
+            self.assertIn("Ohne Zeitplan", open_task)
 
             quick = _text(handle_command(storage, "aufgabe Bad 1 Stunde", anna, scope, group_id))
             self.assertIn("Bad", quick)
@@ -125,7 +125,7 @@ class CommandSurfaceTests(unittest.TestCase):
             self.assertIn("Max", done_fuer)
 
             edit = _text(handle_command(storage, "bearbeite Bad", anna, scope, group_id))
-            self.assertIn("Fälligkeit", edit)
+            self.assertIn("zeitplan", edit)
             self.assertIn("abbrechen", edit)
             time_prompt = _text(handle_command(storage, "Erinnerungszeit", anna, scope, group_id))
             self.assertIn("Uhrzeit", time_prompt)

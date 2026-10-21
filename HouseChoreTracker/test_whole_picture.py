@@ -85,7 +85,7 @@ class WholePictureTests(unittest.TestCase):
                 stats_answer = "nein" if language == "de" else "no"
             replies.append(_text(handle_command(self.storage, stats_answer, sender, scope, group_id)))
             current = replies[-1].lower()
-        if "bestätigt" in current or "confirmation" in current:
+        if "abgehakt" in current or "marked as done" in current:
             conf = "ja" if language == "de" else "yes"
             replies.append(_text(handle_command(self.storage, conf, sender, scope, group_id)))
         return replies[-1]
@@ -94,7 +94,7 @@ class WholePictureTests(unittest.TestCase):
         group_id = "wg-kitchen"
         anna = "sender-anna"
         max_user = "sender-max"
-        scope = self._setup_group("sprache deutsch", group_id, anna, "Setup fertig")
+        scope = self._setup_group("sprache deutsch", group_id, anna, "Alles eingerichtet")
 
         self.assertIn("Anna", _text(handle_command(self.storage, "name Anna", anna, scope, group_id)))
         self.assertIn("Max", _text(handle_command(self.storage, "name Max", max_user, scope, group_id)))
@@ -105,7 +105,7 @@ class WholePictureTests(unittest.TestCase):
 
         todo = _text(handle_command(self.storage, "todo Milch kaufen", anna, scope, group_id))
         self.assertIn("Milch kaufen", todo)
-        self.assertIn("Kein Plan", todo)
+        self.assertIn("Ohne Zeitplan", todo)
 
         once = self._finish_once(scope, group_id, anna, "einmal Paket Freitag 19:45")
         self.assertIn("Paket", once)
@@ -132,7 +132,7 @@ class WholePictureTests(unittest.TestCase):
         self.assertIn("Erinnerungszeit", details)
         self.assertIn("19:45", details)
         self.assertIn("offene Aufgabe", details)
-        self.assertIn("kein plan", details.lower())
+        self.assertIn("kein zeitplan", details.lower())
 
         done_recurring = _text(handle_command(self.storage, "erledigt Müll", anna, scope, group_id))
         self.assertIn("Müll", done_recurring)
@@ -236,7 +236,7 @@ class WholePictureTests(unittest.TestCase):
         group_id = "flat-en"
         alice = "sender-alice"
         bob = "sender-bob"
-        scope = self._setup_group("language en", group_id, alice, "Setup complete")
+        scope = self._setup_group("language en", group_id, alice, "All set")
         self.assertIn("Alice", _text(handle_command(self.storage, "name Alice", alice, scope, group_id)))
         self.assertIn("Bob", _text(handle_command(self.storage, "name Bob", bob, scope, group_id)))
 

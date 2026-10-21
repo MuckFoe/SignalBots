@@ -23,91 +23,90 @@ SUPPORTED_LANGUAGES = {"en", "de"}
 
 USAGE_TIPS = {
     "en": {
-        "spent": "Check balances with: balances",
-        "balances": "Log expenses with: spent <amount> <description>",
-        "join": "After joining, log expenses with: spent 20 coffee",
+        "spent": "See who owes whom with: balances",
+        "balances": "Log an expense with: spent <amount> <description>",
+        "join": "After joining, log expenses like this: spent 20 coffee",
         "add": "Quick log: spent 80 groceries | Bob 50%",
-        "settle": "See who owes what with: balances",
+        "settle": "See who owes whom with: balances",
         "members": "Others can join with: join",
     },
     "de": {
-        "spent": "Salden prüfen mit: bilanz",
-        "balances": "Ausgaben erfassen mit: ausgegeben <Betrag> <Beschreibung>",
-        "join": "Nach dem Beitritt: ausgegeben 20 kaffee",
-        "add": "Schnell: ausgegeben 80 einkauf | Bob 50%",
-        "settle": "Schulden anzeigen mit: bilanz",
-        "members": "Andere können mit beitreten dazu kommen",
+        "spent": "Wer wem was schuldet: bilanz",
+        "balances": "Ausgabe erfassen: ausgegeben <Betrag> <Beschreibung>",
+        "join": "Danach erfasst du Ausgaben so: ausgegeben 20 Kaffee",
+        "add": "Schnell erfassen: ausgegeben 80 Einkauf | Bob 50%",
+        "settle": "Wer wem was schuldet: bilanz",
+        "members": "Andere machen mit über: beitreten",
     },
 }
 
 TEXT = {
     "en": {
         "help": (
-            "💸 Expense Split Bot (Splitwise/Tricount style):\n\n"
+            "💸 Expense splitting – commands\n\n"
             "- ❓ help\n"
-            "- 👥 members (alias: who)\n"
+            "- 👥 members  (also: who)\n"
             "- 👋 join\n"
             "- 👤 name <your name>\n"
-            "- ➕ add (guided)\n"
+            "- ➕ add  (step by step)\n"
             "- 💸 spent <amount> <description>\n"
             "- 💸 spent <amount> <description> | <name> 50%\n"
-            "- 💸 paid <amount> <description> (same as spent)\n"
-            "- ⚖️ split <amount> <description> (equal split)\n"
-            "- ⚖️ split <amount> <desc> | <name>:<amount> ...\n"
-            "- ⚖️ split <amount> <desc> | <name>:50% ...\n"
-            "- 📋 expenses [limit]\n"
-            "- 📋 expense <id>\n"
-            "- 🗑️ delete <id>\n"
+            "- ⚖️ split <amount> <description>  (equal split)\n"
+            "- ⚖️ split <amount> <description> | <name>:<amount> …\n"
+            "- ⚖️ split <amount> <description> | <name>:50% …\n"
+            "- 📋 expenses [count]\n"
+            "- 📋 expense <no.>\n"
+            "- 🗑️ delete <no.>\n"
             "- ⚖️ balances\n"
             "- 🤝 settle <name> [amount] [note]\n"
-            "- 🤝 settlements [limit]\n"
+            "- 🤝 settlements\n"
             "- 💰 total\n"
-            "- 💱 currency <code>\n"
+            "- 💱 currency <code>, e.g. currency EUR\n"
             "- 📊 stats\n"
-            "- 📈 balances chart / stats chart\n"
+            "- 📈 balances chart · stats chart\n"
             "🔧 Admin: admin help"
         ),
         "setup_choose_language": (
-            "👋 Welcome / Willkommen. Choose language:\n"
-            "- language en\n"
-            "- sprache deutsch"
+            "👋 Welcome! First, choose the language for this group:\n"
+            "- english\n"
+            "- deutsch"
         ),
-        "setup_choose_bot": "Which bot should manage this group?\n{options}\nReply with: bot <id>",
-        "setup_bot_set": "✅ This group now uses: {name} (bot {bot_id}).",
-        "setup_choose_name": "👤 What name should I use for you in this group?\nReply with your name, or cancel.",
-        "setup_complete": "🎉 Setup complete. Others can join with: join\nExample: spent 80 shopping | Bob 50%",
-        "setup_bot_invalid": "Unknown bot. Reply with: bot <id>",
+        "setup_choose_bot": "Which bot should manage this group?\n{options}\nReply with: bot <number>",
+        "setup_bot_set": "✅ This group is now managed by {name} (bot {bot_id}).",
+        "setup_choose_name": "👤 Which name should I use for you in this group?\nReply with your name, or cancel.",
+        "setup_complete": "🎉 All set! Others can join with: join\nExample: spent 80 groceries | Bob 50%",
+        "setup_bot_invalid": "Unknown bot. Reply with: bot <number>",
         "members_header": "👥 Members:",
         "members_line": "{idx}. {name} — {balance}",
         "members_empty": "No members yet. Reply: join",
-        "join_prompt": "👋 What name should I use for you?\nReply with your name, or cancel.",
+        "join_prompt": "👋 Which name should I use for you?\nReply with your name, or cancel.",
         "joined": "👋 You joined as {name}.",
-        "already_member": "You are already registered as {name}.",
+        "already_member": "You are already a member as {name}.",
         "name_saved": "👤 Your name is now: {name}",
-        "name_invalid": "Use 2-24 letters, numbers, spaces, or hyphens.",
+        "name_invalid": "Please use 2-24 characters: letters, numbers, spaces or hyphens.",
         "usage_name": "Usage: name <your name>",
-        "need_member": "Join first with: join",
-        "need_two_members": "Need at least 2 members before splitting expenses.",
-        "member_not_found": "⚠️ Member '{name}' not found.",
+        "need_member": "Please join first with: join",
+        "need_two_members": "At least 2 members are needed to split expenses. Others can join with: join",
+        "member_not_found": "⚠️ There is no member called '{name}'.",
         "add_amount": "How much was spent? (e.g. 45.50)",
         "add_description": "What was it for?",
-        "add_payer": "Who paid?\n{options}\nReply with a number, name, or 'me'.",
-        "add_split": "Split equally among all members ({count})?\nReply: yes, no, or cancel.",
+        "add_payer": "Who paid?\n{options}\nReply with a number, a name or 'me'.",
+        "add_split": "Split equally among all {count} members?\nReply: yes, no or cancel.",
         "add_pick_members": "Who shares this expense? Reply with names separated by commas, or 'all'.",
         "add_reduced_shares": (
             "Does anyone pay less than a full share?\n"
-            "Example: 4 people shopping, Bob doesn't drink → reply: Bob 50%\n"
-            "The bot calculates the rest for everyone else.\n"
-            "Reply: none if everyone pays equally."
+            "Example: 4 people go shopping and Bob doesn't drink → reply: Bob 50%\n"
+            "The bot splits the rest among everyone else.\n"
+            "Reply 'none' if everyone pays the same."
         ),
         "add_confirm": (
-            "Add expense?\n"
+            "Add this expense?\n"
             "- {amount} for {description}\n"
             "- paid by {payer}\n"
             "- split:\n{splits}\n"
-            "Reply: yes, no, or cancel."
+            "Reply: yes, no or cancel."
         ),
-        "expense_added": "💸 Added expense #{id}: {amount} {description}",
+        "expense_added": "💸 Expense #{id} added: {amount} {description}",
         "expenses_header": "📋 Recent expenses:",
         "expenses_line": "#{id} {amount} {description} — paid by {payer} ({date})",
         "expenses_empty": "No expenses yet. Try: spent 20 coffee",
@@ -117,45 +116,47 @@ TEXT = {
             "Split:\n{splits}\n"
             "Date: {date}"
         ),
-        "expense_not_found": "⚠️ Expense #{id} not found.",
-        "deleted": "🗑️ Deleted expense #{id}.",
+        "expense_not_found": "⚠️ Expense #{id} was not found.",
+        "deleted": "🗑️ Expense #{id} deleted.",
         "balances_header": "⚖️ Balances:",
         "balances_line": "- {name}: {balance}",
         "balances_settled": "✅ Everyone is settled up.",
         "debts_header": "💸 Who should pay whom:",
         "debts_line": "- {from_name} → {to_name}: {amount}",
         "settle_done": "🤝 Recorded: {from_name} paid {to_name} {amount}{note}",
-        "settle_nothing": "You owe {name} nothing.",
+        "settle_nothing": "You don't owe {name} anything.",
         "settle_usage": "Usage: settle <name> [amount] [note]",
         "settlements_header": "🤝 Recent settlements:",
         "settlements_line": "#{id} {from_name} → {to_name}: {amount}{note} ({date})",
         "settlements_empty": "No settlements recorded yet.",
         "total_spent": "💰 Total group spending: {amount}",
         "currency_set": "Currency set to {currency}.",
-        "currency_usage": "Usage: currency EUR",
-        "invalid_amount": "Invalid amount. Example: 25.50",
-        "invalid_split": "Custom split must match the total. Example: split 100 dinner Alice:60 Bob:40",
+        "currency_usage": "Usage: currency <code>, e.g. currency EUR",
+        "invalid_amount": "I could not read that amount. Example: 25.50",
+        "invalid_split": "The individual amounts must add up to the total. Example: split 100 dinner | Alice:60 Bob:40",
         "invalid_reduced_shares": (
-            "Use a name and percent of a normal share, e.g. Bob 50%\n"
+            "Please reply with a name and a percentage of a normal share, e.g. Bob 50%\n"
             "Or: none"
         ),
         "cancelled": "↩️ Cancelled.",
-        "confirm_expected": "Reply: yes, no, or cancel.",
-        "language_set_en": "Language set to English.",
-        "language_set_de": "Language set to German.",
+        "confirm_expected": "Please reply with yes, no or cancel.",
+        "language_set_en": "This chat's language is now English.",
+        "language_set_de": "This chat's language is now German.",
         "language_usage": "Usage: language en or language de",
         "admin_help": "🔧 Admin commands:\n- 🗑️ admin remove member <name>",
-        "admin_only": "Use admin commands with: admin <action>",
-        "member_removed": "Removed member: {name}",
+        "admin_only": "Unknown admin command. See all admin commands with: admin help",
+        "member_removed": "Member removed: {name}",
         "unexpected_error": "⚠️ Something went wrong while handling your command.",
-        "unknown": "Unknown command.\n\n{help}",
-        "usage_delete": "Usage: delete <expense id>",
-        "usage_expense": "Usage: expense <id>",
+        "unknown": "I don't know that command.\n\n{help}",
+        "usage_delete": "Usage: delete <expense no.>",
+        "usage_expense": "Usage: expense <no.>",
+        "usage_spent": "Usage: spent <amount> <description>, e.g. spent 20 coffee · someone pays less: spent 80 groceries | Bob 50%",
+        "usage_split": "Usage: split <amount> <description>, e.g. split 60 pizza · fixed amounts: split 100 dinner | Alice:60 Bob:40",
         "user_stats_header": "📊 Your expense stats:",
-        "user_stats_line": "- paid {paid_count} expenses ({paid_total})\n- shared in {shared_count}\n- settlements: {settlements}\n- balance: {balance}",
-        "user_stats_empty": "No activity yet. Try: join then spent 20 coffee",
+        "user_stats_line": "- paid: {paid_count} expense(s), {paid_total}\n- shared in: {shared_count} expense(s)\n- settlements: {settlements}\n- balance: {balance}",
+        "user_stats_empty": "No activity yet. Try: join, then spent 20 coffee",
         "chart_empty": "📈 Not enough data for a chart yet.",
-        "chart_unknown": "📈 Unknown chart type.",
+        "chart_unknown": "📈 Unknown chart. Try: balances chart, balances chart paid or balances chart top",
         "chart_suggest_balances": "💡 Also available:\n• balances chart paid\n• balances chart top",
         "chart_suggest_paid": "💡 Also available:\n• balances chart\n• balances chart top",
         "chart_suggest_top": "💡 Also available:\n• balances chart\n• balances chart paid",
@@ -163,123 +164,124 @@ TEXT = {
     },
     "de": {
         "help": (
-            "💸 Ausgaben-Bot (wie Splitwise/Tricount):\n\n"
+            "💸 Kosten teilen – Befehle\n\n"
             "- ❓ hilfe\n"
-            "- 👥 mitglieder (auch: who)\n"
+            "- 👥 mitglieder\n"
             "- 👋 beitreten\n"
             "- 👤 name <dein Name>\n"
-            "- ➕ hinzufügen / add (Schritt für Schritt)\n"
+            "- ➕ hinzufügen  (Schritt für Schritt)\n"
             "- 💸 ausgegeben <Betrag> <Beschreibung>\n"
             "- 💸 ausgegeben <Betrag> <Beschreibung> | <Name> 50%\n"
-            "- 💸 paid <Betrag> <Beschreibung> (wie ausgegeben)\n"
-            "- ⚖️ teilen <Betrag> <Beschreibung> (gleichmäßig)\n"
-            "- ⚖️ teilen <Betrag> <Beschreibung> | <Name>:<Betrag> ...\n"
-            "- ⚖️ teilen <Betrag> <Beschreibung> | <Name>:50% ...\n"
-            "- 📋 ausgaben [Limit]\n"
-            "- 📋 ausgabe <id>\n"
-            "- 🗑️ löschen <id>\n"
+            "- ⚖️ teilen <Betrag> <Beschreibung>  (gleichmäßig)\n"
+            "- ⚖️ teilen <Betrag> <Beschreibung> | <Name>:<Betrag> …\n"
+            "- ⚖️ teilen <Betrag> <Beschreibung> | <Name>:50% …\n"
+            "- 📋 ausgaben [Anzahl]\n"
+            "- 📋 ausgabe <Nr.>\n"
+            "- 🗑️ löschen <Nr.>\n"
             "- ⚖️ bilanz\n"
             "- 🤝 begleichen <Name> [Betrag] [Notiz]\n"
-            "- 🤝 zahlungen [Limit]\n"
+            "- 🤝 zahlungen\n"
             "- 💰 gesamt\n"
-            "- 💱 währung <Code>\n"
+            "- 💱 währung <Code>, z.B. währung EUR\n"
             "- 📊 statistik\n"
-            "- 📈 bilanz diagramm / statistik diagramm\n"
+            "- 📈 bilanz diagramm · statistik diagramm\n"
             "🔧 Admin: admin hilfe"
         ),
         "setup_choose_language": (
-            "👋 Welcome / Willkommen. Sprache wählen:\n"
-            "- language en\n"
-            "- sprache deutsch"
+            "👋 Willkommen! Wähle zuerst die Sprache für diese Gruppe:\n"
+            "- deutsch\n"
+            "- english"
         ),
-        "setup_choose_bot": "Welcher Bot soll diese Gruppe verwalten?\n{options}\nAntworte mit: bot <id>",
-        "setup_bot_set": "✅ Diese Gruppe nutzt jetzt: {name} (bot {bot_id}).",
-        "setup_choose_name": "👤 Welchen Namen soll ich für dich verwenden?\nAntworte mit deinem Namen oder abbrechen.",
-        "setup_complete": "🎉 Setup fertig. Andere: beitreten\nBeispiel: ausgegeben 80 einkauf | Bob 50%",
-        "setup_bot_invalid": "Unbekannter Bot. Antworte mit: bot <id>",
+        "setup_choose_bot": "Welcher Bot soll diese Gruppe betreuen?\n{options}\nAntworte mit: bot <Nummer>",
+        "setup_bot_set": "✅ Diese Gruppe wird jetzt von {name} betreut (bot {bot_id}).",
+        "setup_choose_name": "👤 Unter welchem Namen soll ich dich in dieser Gruppe führen?\nAntworte mit deinem Namen oder mit abbrechen.",
+        "setup_complete": "🎉 Alles eingerichtet! Die anderen machen mit über: beitreten\nBeispiel: ausgegeben 80 Einkauf | Bob 50%",
+        "setup_bot_invalid": "Diesen Bot gibt es nicht. Antworte mit: bot <Nummer>",
         "members_header": "👥 Mitglieder:",
         "members_line": "{idx}. {name} — {balance}",
         "members_empty": "Noch keine Mitglieder. Antworte: beitreten",
-        "join_prompt": "👋 Welchen Namen soll ich für dich verwenden?\nAntworte mit deinem Namen oder abbrechen.",
-        "joined": "👋 Du bist als {name} dabei.",
-        "already_member": "Du bist bereits als {name} registriert.",
+        "join_prompt": "👋 Unter welchem Namen soll ich dich führen?\nAntworte mit deinem Namen oder mit abbrechen.",
+        "joined": "👋 Du bist jetzt dabei als {name}.",
+        "already_member": "Du bist schon dabei als {name}.",
         "name_saved": "👤 Dein Name ist jetzt: {name}",
-        "name_invalid": "Bitte 2-24 Zeichen (Buchstaben, Zahlen, Leerzeichen oder Bindestriche).",
+        "name_invalid": "Bitte 2-24 Zeichen verwenden: Buchstaben, Zahlen, Leerzeichen oder Bindestriche.",
         "usage_name": "So geht's: name <dein Name>",
-        "need_member": "Zuerst beitreten mit: beitreten",
-        "need_two_members": "Mindestens 2 Mitglieder nötig, bevor Ausgaben geteilt werden.",
-        "member_not_found": "⚠️ Mitglied '{name}' nicht gefunden.",
+        "need_member": "Bitte tritt zuerst bei mit: beitreten",
+        "need_two_members": "Zum Aufteilen braucht es mindestens 2 Mitglieder. Die anderen machen mit über: beitreten",
+        "member_not_found": "⚠️ Es gibt kein Mitglied namens '{name}'.",
         "add_amount": "Wie viel wurde ausgegeben? (z.B. 45,50)",
-        "add_description": "Wofür war es?",
-        "add_payer": "Wer hat bezahlt?\n{options}\nAntworte mit Nummer, Name oder 'ich'.",
-        "add_split": "Gleichmäßig auf alle ({count}) aufteilen?\nAntworte: ja, nein oder abbrechen.",
-        "add_pick_members": "Wer ist beteiligt? Namen mit Komma trennen oder 'alle'.",
+        "add_description": "Wofür war das?",
+        "add_payer": "Wer hat bezahlt?\n{options}\nAntworte mit einer Nummer, einem Namen oder 'ich'.",
+        "add_split": "Gleichmäßig auf alle {count} Mitglieder aufteilen?\nAntworte: ja, nein oder abbrechen.",
+        "add_pick_members": "Wer ist beteiligt? Antworte mit Namen, getrennt durch Kommas, oder mit 'alle'.",
         "add_reduced_shares": (
             "Zahlt jemand weniger als einen vollen Anteil?\n"
-            "Beispiel: 4 Personen einkaufen, Bob trinkt nicht → Bob 50%\n"
-            "Der Bot rechnet den Rest für alle anderen aus.\n"
-            "Antworte: keine wenn alle gleich zahlen."
+            "Beispiel: 4 Leute kaufen ein, Bob trinkt nicht mit → antworte: Bob 50%\n"
+            "Den Rest teilt der Bot auf alle anderen auf.\n"
+            "Antworte 'keine', wenn alle gleich viel zahlen."
         ),
         "add_confirm": (
-            "Ausgabe hinzufügen?\n"
+            "Diese Ausgabe erfassen?\n"
             "- {amount} für {description}\n"
             "- bezahlt von {payer}\n"
             "- Aufteilung:\n{splits}\n"
             "Antworte: ja, nein oder abbrechen."
         ),
-        "expense_added": "💸 Ausgabe #{id}: {amount} {description}",
+        "expense_added": "💸 Ausgabe #{id} erfasst: {amount} {description}",
         "expenses_header": "📋 Letzte Ausgaben:",
-        "expenses_line": "#{id} {amount} {description} — {payer} ({date})",
-        "expenses_empty": "Noch keine Ausgaben. z.B.: ausgegeben 20 kaffee",
+        "expenses_line": "#{id} {amount} {description} — bezahlt von {payer} ({date})",
+        "expenses_empty": "Noch keine Ausgaben. Probier: ausgegeben 20 Kaffee",
         "expense_detail": (
             "Ausgabe #{id}: {amount} {description}\n"
             "Bezahlt von: {payer}\n"
             "Aufteilung:\n{splits}\n"
             "Datum: {date}"
         ),
-        "expense_not_found": "⚠️ Ausgabe #{id} nicht gefunden.",
+        "expense_not_found": "⚠️ Die Ausgabe #{id} wurde nicht gefunden.",
         "deleted": "🗑️ Ausgabe #{id} gelöscht.",
-        "balances_header": "⚖️ Salden:",
+        "balances_header": "⚖️ Bilanz:",
         "balances_line": "- {name}: {balance}",
-        "balances_settled": "✅ Alle sind ausgeglichen.",
-        "debts_header": "💸 Wer zahlt wem:",
+        "balances_settled": "✅ Alle sind quitt.",
+        "debts_header": "💸 Wer muss wem was zahlen:",
         "debts_line": "- {from_name} → {to_name}: {amount}",
-        "settle_done": "🤝 Erfasst: {from_name} zahlte {to_name} {amount}{note}",
+        "settle_done": "🤝 Notiert: {from_name} hat {to_name} {amount} gezahlt{note}",
         "settle_nothing": "Du schuldest {name} nichts.",
         "settle_usage": "So geht's: begleichen <Name> [Betrag] [Notiz]",
-        "settlements_header": "🤝 Letzte Zahlungen:",
+        "settlements_header": "🤝 Letzte Rückzahlungen:",
         "settlements_line": "#{id} {from_name} → {to_name}: {amount}{note} ({date})",
-        "settlements_empty": "Noch keine Zahlungen erfasst.",
+        "settlements_empty": "Es wurden noch keine Rückzahlungen erfasst.",
         "total_spent": "💰 Gesamtausgaben der Gruppe: {amount}",
-        "currency_set": "Währung gesetzt auf {currency}.",
-        "currency_usage": "So geht's: währung EUR",
-        "invalid_amount": "Ungültiger Betrag. Beispiel: 25,50",
-        "invalid_split": "Aufteilung muss den Gesamtbetrag ergeben. z.B. teilen 100 essen Alice:60 Bob:40",
+        "currency_set": "Währung auf {currency} gestellt.",
+        "currency_usage": "So geht's: währung <Code>, z.B. währung EUR",
+        "invalid_amount": "Diesen Betrag verstehe ich nicht. Beispiel: 25,50",
+        "invalid_split": "Die Einzelbeträge müssen zusammen den Gesamtbetrag ergeben. Beispiel: teilen 100 Essen | Alice:60 Bob:40",
         "invalid_reduced_shares": (
-            "Name und Prozent eines normalen Anteils, z.B. Bob 50%\n"
+            "Bitte antworte mit einem Namen und dem Prozentsatz eines normalen Anteils, z.B. Bob 50%\n"
             "Oder: keine"
         ),
         "cancelled": "↩️ Abgebrochen.",
-        "confirm_expected": "Antworte: ja, nein oder abbrechen.",
-        "language_set_en": "Sprache auf Englisch gesetzt.",
-        "language_set_de": "Sprache auf Deutsch gesetzt.",
-        "language_usage": "So geht's: language en oder language de",
+        "confirm_expected": "Bitte antworte mit ja, nein oder abbrechen.",
+        "language_set_en": "Die Sprache für diesen Chat ist jetzt Englisch.",
+        "language_set_de": "Die Sprache für diesen Chat ist jetzt Deutsch.",
+        "language_usage": "So geht's: sprache deutsch oder sprache englisch",
         "admin_help": "🔧 Admin-Befehle:\n- 🗑️ admin mitglied entfernen <Name>",
-        "admin_only": "Admin-Befehle nutzt du mit: admin <Aktion>",
+        "admin_only": "Diesen Admin-Befehl gibt es nicht. Alle Admin-Befehle: admin hilfe",
         "member_removed": "Mitglied entfernt: {name}",
-        "unexpected_error": "⚠️ Beim Verarbeiten des Befehls ist etwas schiefgelaufen.",
-        "unknown": "Unbekannter Befehl.\n\n{help}",
-        "usage_delete": "So geht's: löschen <Ausgaben-ID>",
-        "usage_expense": "So geht's: ausgabe <id>",
-        "user_stats_header": "📊 Deine Ausgaben-Statistik:",
-        "user_stats_line": "- {paid_count} mal bezahlt ({paid_total})\n- an {shared_count} Ausgaben beteiligt\n- Zahlungen: {settlements}\n- Saldo: {balance}",
-        "user_stats_empty": "Noch keine Aktivität. Probiere: beitreten, dann ausgegeben 20 kaffee",
-        "chart_empty": "📈 Noch nicht genug Daten für ein Diagramm.",
-        "chart_unknown": "📈 Unbekannter Diagramm-Typ.",
-        "chart_suggest_balances": "💡 Auch verfügbar:\n• bilanz diagramm bezahlt\n• bilanz diagramm top",
-        "chart_suggest_paid": "💡 Auch verfügbar:\n• bilanz diagramm\n• bilanz diagramm top",
-        "chart_suggest_top": "💡 Auch verfügbar:\n• bilanz diagramm\n• bilanz diagramm bezahlt",
-        "chart_suggest_stats": "💡 Gruppen-Diagramme:\n• bilanz diagramm\n• bilanz diagramm bezahlt\n• bilanz diagramm top",
+        "unexpected_error": "⚠️ Beim Verarbeiten deines Befehls ist etwas schiefgelaufen.",
+        "unknown": "Diesen Befehl kenne ich nicht.\n\n{help}",
+        "usage_delete": "So geht's: löschen <Nr. der Ausgabe>",
+        "usage_expense": "So geht's: ausgabe <Nr.>",
+        "usage_spent": "So geht's: ausgegeben <Betrag> <Beschreibung>, z.B. ausgegeben 20 Kaffee · jemand zahlt weniger: ausgegeben 80 Einkauf | Bob 50%",
+        "usage_split": "So geht's: teilen <Betrag> <Beschreibung>, z.B. teilen 60 Pizza · feste Beträge: teilen 100 Essen | Alice:60 Bob:40",
+        "user_stats_header": "📊 Deine Statistik:",
+        "user_stats_line": "- bezahlt: {paid_count} Ausgabe(n), {paid_total}\n- beteiligt an: {shared_count} Ausgabe(n)\n- Rückzahlungen: {settlements}\n- Saldo: {balance}",
+        "user_stats_empty": "Noch keine Aktivität. Probier: beitreten, dann ausgegeben 20 Kaffee",
+        "chart_empty": "📈 Für ein Diagramm gibt es noch nicht genug Daten.",
+        "chart_unknown": "📈 Dieses Diagramm gibt es nicht. Probier: bilanz diagramm, bilanz diagramm bezahlt oder bilanz diagramm top",
+        "chart_suggest_balances": "💡 Außerdem:\n• bilanz diagramm bezahlt\n• bilanz diagramm top",
+        "chart_suggest_paid": "💡 Außerdem:\n• bilanz diagramm\n• bilanz diagramm top",
+        "chart_suggest_top": "💡 Außerdem:\n• bilanz diagramm\n• bilanz diagramm bezahlt",
+        "chart_suggest_stats": "💡 Gruppendiagramme:\n• bilanz diagramm\n• bilanz diagramm bezahlt\n• bilanz diagramm top",
     },
 }
 
@@ -356,7 +358,7 @@ def _format_split_lines(
         if multiplier < 1.0:
             percent = int(round(multiplier * 100))
             if language == "de":
-                lines.append(f"- {label}: {amount} ({percent}% Anteil)")
+                lines.append(f"- {label}: {amount} (Anteil: {percent}%)")
             else:
                 lines.append(f"- {label}: {amount} ({percent}% share)")
         else:
@@ -480,7 +482,7 @@ def _expense_balance_chart(
     if not members:
         return text_for(storage, scope_id, "members_empty")
 
-    normalized = balance_chart_kind(kind)
+    normalized = balance_chart_kind(kind, language)
     if kind and normalized not in {"balances", "paid", "top"}:
         return text_for(storage, scope_id, "chart_unknown")
 
@@ -795,7 +797,7 @@ def _format_expense_detail(storage: Storage, scope_id: str, expense_id: int, lan
         if multiplier and multiplier < 1.0:
             percent = int(round(multiplier * 100))
             if language == "de":
-                split_lines.append(f"- {label}: {amount} ({percent}% Anteil)")
+                split_lines.append(f"- {label}: {amount} (Anteil: {percent}%)")
             else:
                 split_lines.append(f"- {label}: {amount} ({percent}% share)")
         else:
@@ -1083,6 +1085,26 @@ def _parse_custom_split(
     return None
 
 
+# A command word sent on its own gets its usage line instead of "unknown command".
+_BARE_COMMAND_USAGE = {
+    **dict.fromkeys(("spent", "paid", "ausgegeben"), "usage_spent"),
+    **dict.fromkeys(("split", "teilen"), "usage_split"),
+    **dict.fromkeys(("settle", "begleichen"), "settle_usage"),
+    **dict.fromkeys(("delete", "löschen", "loeschen"), "usage_delete"),
+    **dict.fromkeys(("expense", "ausgabe"), "usage_expense"),
+    **dict.fromkeys(("currency", "währung", "waehrung"), "currency_usage"),
+}
+
+
+def _first_contact_language(text: str, fallback: str) -> str:
+    words = set(text.strip().lower().split())
+    if words & {"hilfe", "hallo", "deutsch", "german"}:
+        return "de"
+    if words & {"help", "hello", "hi", "english", "englisch"}:
+        return "en"
+    return fallback
+
+
 def handle_command(
     storage: Storage,
     message_text: str,
@@ -1099,7 +1121,7 @@ def handle_command(
     if not storage.has_language(scope_id):
         language_request = _language_from_command(command_text)
         if language_request is None:
-            return text_for(storage, scope_id, "setup_choose_language")
+            return _text(_first_contact_language(command_text, language), "setup_choose_language")
         if language_request == "invalid" or not language_request:
             return text_for(storage, scope_id, "language_usage")
         storage.set_language(scope_id, language_request)
@@ -1233,6 +1255,10 @@ def handle_command(
             return text_for(storage, scope_id, "currency_usage")
         storage.set_currency(scope_id, parts[1].strip())
         return text_for(storage, scope_id, "currency_set", currency=parts[1].strip().upper())
+
+    bare_usage_key = _BARE_COMMAND_USAGE.get(" ".join(command_lowered.split()))
+    if bare_usage_key:
+        return text_for(storage, scope_id, bare_usage_key)
 
     if command_lowered in {"add", "hinzufügen", "hinzufuegen"}:
         if len(storage.list_members(scope_id)) < 2:

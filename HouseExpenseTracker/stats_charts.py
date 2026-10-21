@@ -50,7 +50,7 @@ def balance_chart(members: list[tuple[str, int]], currency: str, language: str) 
     labels = [name for name, _ in members]
     values = [cents / 100.0 for _, cents in members]
     colors = ["#59A14F" if value >= 0 else "#E15759" for value in values]
-    title = "Salden" if language == "de" else "Balances"
+    title = "Bilanz" if language == "de" else "Balances"
     xlabel = currency
     return _barh_chart(labels, values, title, xlabel, "balances.png", colors)
 

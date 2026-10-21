@@ -155,7 +155,7 @@ def group_stats_all_charts(
     xlabel = "Erledigungen" if language == "de" else "Completions"
     people_title = "Wer wie viel" if language == "de" else "Who did how much"
     chores_title = "Pro Aufgabe" if language == "de" else "Per chore"
-    main_title = "Gruppen-Statistik Übersicht" if language == "de" else "Group stats overview"
+    main_title = "Gruppenstatistik – Übersicht" if language == "de" else "Group stats overview"
 
     fig = Figure(figsize=(11.0, 9.2), dpi=130, layout="constrained")
     if people and chores and matrix:

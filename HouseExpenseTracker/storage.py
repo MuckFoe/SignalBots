@@ -9,6 +9,26 @@ from balances import simplify_debts
 from display_names import default_display_name, is_opaque_sender, is_valid_display_name
 from money import split_equal, split_with_multipliers
 from dialogue_utils import STALE_STEP, dialogue_ttl_minutes, is_dialogue_stale
+import scope_migration
+
+_IN_SCOPE = "scope_id = ?"
+
+MIGRATION = scope_migration.MigrationSpec(
+    scope_tables=("chat_admins", "chat_settings", "command_usage", "expenses", "members", "settlements"),
+    transient_tables=("pending_expense_adds", "pending_member_names"),
+    person_columns=(
+        ("chat_admins", "sender", _IN_SCOPE),
+        ("command_usage", "sender", _IN_SCOPE),
+        ("members", "sender", _IN_SCOPE),
+        ("expenses", "paid_by", _IN_SCOPE),
+        ("expenses", "created_by", _IN_SCOPE),
+        ("settlements", "from_sender", _IN_SCOPE),
+        ("settlements", "to_sender", _IN_SCOPE),
+        ("settlements", "created_by", _IN_SCOPE),
+        ("expense_splits", "member_sender", "expense_id IN (SELECT id FROM expenses WHERE scope_id = ?)"),
+    ),
+    member_query="SELECT sender, display_name FROM members WHERE scope_id = ? ORDER BY display_name",
+)
 
 
 class Storage:
@@ -21,6 +41,20 @@ class Storage:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+    def move_scope(self, old_scope: str, new_scope: str, old_group_id: str | None, new_group_id: str | None) -> None:
+        with self._connect() as conn:
+            scope_migration.move_scope(conn, MIGRATION, old_scope, new_scope, old_group_id, new_group_id)
+            conn.commit()
+
+    def migration_members(self, scope_id: str) -> list[dict]:
+        with self._connect() as conn:
+            return scope_migration.list_members(conn, MIGRATION, scope_id)
+
+    def merge_member(self, scope_id: str, old_sender: str, new_sender: str) -> None:
+        with self._connect() as conn:
+            scope_migration.merge_member(conn, MIGRATION, scope_id, old_sender, new_sender)
+            conn.commit()
 
     def _init_db(self) -> None:
         with self._connect() as conn:
@@ -621,7 +655,7 @@ class Storage:
                     paid_by if paid_by is not None else current_paid_by,
                     json.dumps(split_members if split_members is not None else current_split),
                     json.dumps(split_multipliers if split_multipliers is not None else current_multipliers),
-                    ttl_minutes,
+                    ttl,
                     scope_id,
                     requested_by,
                 ),

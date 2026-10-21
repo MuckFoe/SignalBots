@@ -46,14 +46,43 @@ def parse_stale_response(text: str) -> str | None:
     return None
 
 
+FLOW_LABELS = {
+    "en": {
+        "name": "setting your name",
+        "edit": "editing a chore",
+        "add chore": "adding a chore",
+        "vacation task": "adding a task before leaving",
+        "vacation": "planning a vacation",
+        "rental add": "adding a rental",
+        "join": "joining",
+        "expense": "adding an expense",
+    },
+    "de": {
+        "name": "Name festlegen",
+        "edit": "Aufgabe bearbeiten",
+        "add chore": "Aufgabe anlegen",
+        "vacation task": "Vorbereitungsaufgabe anlegen",
+        "vacation": "Urlaub planen",
+        "rental add": "Unterkunft hinzufügen",
+        "join": "Beitreten",
+        "expense": "Ausgabe erfassen",
+    },
+}
+
+
 def stale_prompt_text(language: str, flow_name: str) -> str:
+    hours = int(STALE_DIALOGUE_HOURS)
     if language == "de":
+        label = FLOW_LABELS["de"].get(flow_name, flow_name)
+        age = "1 Stunde" if hours == 1 else f"{hours} Stunden"
         return (
-            f"⏳ Du hast eine unfertige {flow_name}-Eingabe (älter als {int(STALE_DIALOGUE_HOURS)} Std.).\n"
-            "Fortfahren? Antworte: ja oder abbrechen"
+            f"⏳ Du hast eine angefangene Eingabe ({label}), die älter als {age} ist.\n"
+            "Weitermachen? Antworte: ja oder abbrechen"
         )
+    label = FLOW_LABELS["en"].get(flow_name, flow_name)
+    age = "1 hour" if hours == 1 else f"{hours} hours"
     return (
-        f"⏳ You have an unfinished {flow_name} entry (older than {int(STALE_DIALOGUE_HOURS)}h).\n"
+        f"⏳ You started {label} more than {age} ago and did not finish.\n"
         "Continue? Reply: yes or cancel"
     )
 
