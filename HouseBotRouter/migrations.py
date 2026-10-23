@@ -2,9 +2,10 @@
 
 Flow: an admin writes "umzug whatsapp" in the old group and gets a one-time
 code; someone writes "umzug <code>" in the new group; the bot owning the group
-moves its data there and the old group goes quiet. Members then claim their
-old identity with "ich bin <Name>" so history, admin rights and balances follow
-them to their new chat id.
+moves its data there and the old group goes quiet. Members whose phone number
+the router recognises on both sides keep their identity automatically; the
+others claim their old identity with "ich bin <Name>" so history, admin rights
+and balances follow them to their new chat id.
 """
 
 from __future__ import annotations
@@ -241,6 +242,14 @@ class MigrationStore:
             conn.execute(
                 "UPDATE migration_claims SET claimed_by = ? WHERE scope_id = ? AND old_sender = ?",
                 (new_sender, scope_id, old_sender),
+            )
+
+    def claim_own(self, scope_id: str, old_senders: list[str], new_sender: str) -> None:
+        # A member whose old id is the same person (same number) needs no "ich bin".
+        with self._connect() as conn:
+            conn.executemany(
+                "UPDATE migration_claims SET claimed_by = ? WHERE scope_id = ? AND old_sender = ? AND claimed_by IS NULL",
+                [(new_sender, scope_id, old_sender) for old_sender in old_senders],
             )
 
     def hint_once(self, scope_id: str, sender: str) -> bool:

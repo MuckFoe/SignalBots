@@ -343,6 +343,10 @@ TEXT = {
             "Reply with your name, or cancel."
         ),
         "display_name_invalid": "Please use 2-24 characters: letters, numbers, spaces or hyphens.",
+        "display_name_taken": (
+            "👤 {name} is already taken in this group. Please pick another name, e.g. with an initial.\n"
+            "If that is you from before the group moved, send: i am {name}"
+        ),
         "display_name_saved": "👤 Your name is now: {name}",
         "usage_name": "Usage: name <your name>",
         "renamed": "✏️ '{old}' is now called '{new}'.",
@@ -740,6 +744,10 @@ TEXT = {
             "Antworte mit deinem Namen oder mit abbrechen."
         ),
         "display_name_invalid": "Bitte 2-24 Zeichen verwenden: Buchstaben, Zahlen, Leerzeichen oder Bindestriche.",
+        "display_name_taken": (
+            "👤 {name} ist in dieser Gruppe schon vergeben. Bitte wähl einen anderen Namen, z. B. mit Initiale.\n"
+            "Bist du das aus der Zeit vor dem Umzug der Gruppe? Dann schreib: ich bin {name}"
+        ),
         "display_name_saved": "👤 Dein Name ist jetzt: {name}",
         "usage_name": "So geht's: name <dein Name>",
         "renamed": "✏️ '{old}' heißt jetzt '{new}'.",
@@ -2121,6 +2129,8 @@ def _handle_pending_member_name(storage: Storage, text: str, sender: str, scope_
     display_name = text.strip()
     if not is_valid_display_name(display_name):
         return _text(language, "display_name_invalid")
+    if storage.display_name_taken(scope_id, display_name, sender):
+        return _text(language, "display_name_taken", name=display_name)
     storage.set_display_name(scope_id, sender, display_name)
     chore_name = pending["chore_name"]
     storage.clear_pending_member_name(scope_id, sender)
@@ -3306,6 +3316,8 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
             return _text(language, "usage_name")
         if not is_valid_display_name(name_value):
             return _text(language, "display_name_invalid")
+        if storage.display_name_taken(scope_id, name_value, sender):
+            return _text(language, "display_name_taken", name=name_value.strip())
         storage.set_display_name(scope_id, sender, name_value)
         return _with_usage_tip(
             storage,

@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026-10-23 – One person, one member
+
+### For the groups
+
+Only the chore and expense bots changed for their groups; the rental bot
+gets no message.
+
+```chores-de
+📢 Kleine Neuigkeit vom Haushalts-Bot
+
+🛠️ Behoben: Manchmal hat der Bot jemanden, den er schon kannte, noch einmal nach dem Namen gefragt. Danach gab es die Person doppelt, und ihre Statistik war aufgeteilt.
+
+👤 Der Bot erkennt euch jetzt, wo möglich, an eurer Telefonnummer, und jeder Name kann in einer Gruppe nur einmal vergeben werden.
+```
+
+```chores-en
+📢 A small update from the chore bot
+
+🛠️ Fixed: the bot sometimes asked someone it already knew for their name again. That person then showed up twice, with their stats split in two.
+
+👤 The bot now recognises you by your phone number where possible, and each name can only be taken once per group.
+```
+
+```expenses-de
+📢 Kleine Neuigkeit vom Ausgaben-Bot
+
+👤 Der Bot erkennt euch jetzt, wo möglich, an eurer Telefonnummer, und jeder Name kann in einer Gruppe nur einmal vergeben werden. So landet niemand doppelt in der Gruppe, und eure Ausgaben bleiben in einer Bilanz.
+```
+
+```expenses-en
+📢 A small update from the expense bot
+
+👤 The bot now recognises you by your phone number where possible, and each name can only be taken once per group. That way nobody ends up in the group twice, and your expenses stay in one balance.
+```
+
+### Under the hood
+
+- Router hands the bots the phone number as sender in groups
+  (`HouseBotRouter/identity.py`): WhatsApp `@c.us` ids, `@lid` ids (via
+  WAHA's lids lookup) and Signal UUIDs (once signal-cli has sent both) map
+  to `+<number>`; rows under an older id fold in via `/internal/merge_member`
+  once per group, and moved members with the same number need no `ich bin`.
+- Chore and expense bots refuse a display name another member of the group
+  already has.
+- Data fix in one chore group: Signal had switched one member from UUID to
+  phone number, leaving two "Moritz" entries; merged into one.
+
 ## 2026-10-21 – WhatsApp
 
 ### For the groups

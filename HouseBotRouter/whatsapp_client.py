@@ -1,6 +1,9 @@
+from urllib.parse import quote
+
 import requests
 
 SEND_TIMEOUT_SECONDS = 300
+LOOKUP_TIMEOUT_SECONDS = 10
 
 
 def is_whatsapp_target(target: str) -> bool:
@@ -45,3 +48,18 @@ class WhatsAppClient:
             self._post("/api/sendText", {"chatId": chat_id, "text": message})
         for attachment in attachments or []:
             self._post("/api/sendImage", {"chatId": chat_id, "file": _parse_attachment(attachment)})
+
+    def phone_for_lid(self, lid: str) -> str | None:
+        # WAHA answers {"lid": "...@lid", "pn": "491701234567@c.us"}, pn null if unknown.
+        try:
+            response = requests.get(
+                f"{self.api_url}/api/{self.session}/lids/{quote(lid, safe='')}",
+                headers={"X-Api-Key": self.api_key},
+                timeout=LOOKUP_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            pn = response.json().get("pn") or ""
+        except (requests.RequestException, ValueError):
+            return None
+        local = pn.partition("@")[0]
+        return f"+{local}" if local.isdigit() else None

@@ -1499,6 +1499,18 @@ class Storage:
             return None
         return row["sender"]
 
+    def display_name_taken(self, scope_id: str, display_name: str, sender: str) -> bool:
+        # A name is only an alias for a sender, so within a group it must point at one person.
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT 1 FROM member_names
+                WHERE scope_id = ? AND LOWER(display_name) = LOWER(?) AND sender != ?
+                """,
+                (scope_id, display_name.strip(), sender.strip()),
+            ).fetchone()
+        return row is not None
+
     def start_pending_member_name(self, scope_id: str, requested_by: str, chore_name: str, ttl_minutes: int | None = None) -> None:
         ttl = ttl_minutes if ttl_minutes is not None else self._dialogue_ttl()
         with self._connect() as conn:

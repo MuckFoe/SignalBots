@@ -497,6 +497,18 @@ class Storage:
             conn.commit()
         return True
 
+    def display_name_taken(self, scope_id: str, display_name: str, sender: str) -> bool:
+        # A name is only an alias for a sender, so within a group it must point at one person.
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT 1 FROM members
+                WHERE scope_id = ? AND lower(display_name) = lower(?) AND sender != ?
+                """,
+                (scope_id, display_name.strip(), sender.strip()),
+            ).fetchone()
+        return row is not None
+
     def list_members(self, scope_id: str) -> List[sqlite3.Row]:
         with self._connect() as conn:
             return conn.execute(
