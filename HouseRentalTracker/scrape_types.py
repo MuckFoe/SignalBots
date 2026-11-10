@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field as dataclass_field, fields
 from typing import Any
 
 
@@ -24,11 +24,14 @@ class ScrapeResult:
     pets_allowed: bool | None = None
     property_type: str | None = None
     error: str | None = None
+    # Set when the LLM/browser fallback was needed but failed (Mac mini off, timeout, render error).
+    # Not stored; the poller then keeps the last known values instead of reporting "unknown".
+    fallback_failed: bool = dataclass_field(default=False, compare=False)
 
     def tracked_values(self) -> dict[str, Any]:
         tracked = {}
         for field in fields(self):
-            if field.name == "error":
+            if field.name in ("error", "fallback_failed"):
                 continue
             tracked[field.name] = getattr(self, field.name)
         return tracked

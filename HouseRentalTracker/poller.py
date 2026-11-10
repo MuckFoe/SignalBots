@@ -4,7 +4,7 @@ import logging
 from datetime import date, datetime
 
 from drive_time import driving_time_minutes
-from scrape_types import ScrapeResult
+from scrape_types import TRACKED_FIELDS, ScrapeResult
 from scrapers import ScraperRegistry
 from storage import Storage
 from utils import hostname, parse_date
@@ -32,6 +32,8 @@ class Poller:
             row["guests"],
             adapter_id=row["adapter_id"],
         )
+        if result.fallback_failed:
+            keep_last_known(result, row)
         drive_minutes, drive_km = self._drive_for_scope(row["scope_id"], result, row)
         changed = self.storage.apply_poll_result(row["id"], result, drive_minutes, drive_km)
         return changed, result
@@ -68,6 +70,16 @@ class Poller:
         origin_name, origin_lat, origin_lon = self.storage.get_drive_origin(scope_id)
         del origin_name
         return driving_time_minutes(origin_lat, origin_lon, result.lat, result.lon)
+
+
+def keep_last_known(result: ScrapeResult, row) -> None:
+    """Fallback failed: fill empty fields from the stored row so a sleeping Mac mini doesn't look like a price change."""
+    for name in TRACKED_FIELDS:
+        if getattr(result, name) is None and name in row.keys() and row[name] is not None:
+            value = row[name]
+            if name in ("available", "pets_allowed"):
+                value = bool(value)
+            setattr(result, name, value)
 
 
 def load_custom_hosts(storage: Storage, registry: ScraperRegistry) -> None:
