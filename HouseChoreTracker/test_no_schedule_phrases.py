@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import tempfile
 import unittest
 
@@ -84,6 +85,27 @@ class NoScheduleChoreCreationTests(unittest.TestCase):
         self.assertTrue(is_not_understood_reply(self._send("listee")))
         self.assertFalse(is_not_understood_reply(self._send("liste")))
         self.assertFalse(is_not_understood_reply(""))
+
+
+class LegacyChoreNameUniquenessTests(unittest.TestCase):
+    def test_legacy_global_unique_name_becomes_per_group(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "chores.db")
+            conn = sqlite3.connect(path)
+            conn.execute(
+                "CREATE TABLE chores (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, "
+                "reminder_interval_minutes INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+                "last_reminded_at TEXT, scope_id TEXT NOT NULL DEFAULT 'legacy')"
+            )
+            conn.execute("INSERT INTO chores (id, name, reminder_interval_minutes, scope_id) VALUES (45, 'Spüle putzen', 0, 'group:b')")
+            conn.commit()
+            conn.close()
+
+            storage = Storage(path)
+            self.assertTrue(storage.add_chore("group:a", "Spüle putzen", {"type": "none"}))
+            self.assertFalse(storage.add_chore("group:a", "Spüle putzen", {"type": "none"}))
+            ids = sqlite3.connect(path).execute("SELECT id FROM chores WHERE scope_id = 'group:b'").fetchall()
+            self.assertEqual(ids, [(45,)])
 
 
 if __name__ == "__main__":
