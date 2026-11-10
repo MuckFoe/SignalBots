@@ -1,6 +1,6 @@
 # Plan: LLM command assist for chore-bot (POC)
 
-Branch: `feature/llm-command-assist` · Drafted 2026-11-07 · Status: plan only, no code yet
+Branch: `feature/llm-command-assist` · Drafted 2026-11-07 · Status: **built 2026-11-10** (steps 2–6 + eval tooling), waiting for the Mac mini — see "Bring-up runbook" at the end
 
 ## Goal
 
@@ -104,8 +104,8 @@ Admin, reset, language and timezone commands are **not** in the catalogue.
 The prompt lists each intent with its slots and the **accepted formats** the
 validators understand (e.g. schedule phrases like `every Monday`,
 `jeden 2. Tag`, `once tomorrow`), so the LLM normalises "jeden zweiten Montag
-morgens um 8" into `schedule: "every 2 weeks on Monday"`,
-`remind_time: "08:00"`. It also gets the scope's **current chore names**, so
+morgens um 8" into `schedule: "every 2 weeks"`, `remind_time: "08:00"`
+(the schedule parser has no "every 2nd Monday" — a weekday schedule is always weekly). It also gets the scope's **current chore names**, so
 "the bathroom is clean" maps to the exact chore `Bad putzen`.
 
 ### What happens after validation
@@ -352,3 +352,77 @@ out of scope for this POC.
 ## Open questions
 
 None at the moment.
+
+---
+
+## What was built (2026-11-10)
+
+| Piece | Where |
+|---|---|
+| LLM client, prompt, JSON schema, output parsing | `HouseChoreTracker/llm_assist.py` |
+| Intent executor, yes/no check, prefilled interviews, dialogue fill | `commands.py`, section "LLM command assist" (`_llm_fallback`, `_llm_handle_intent`, `_llm_advance_chore_setup`, `_llm_fill_chore_setup`, `_execute_llm_plan`) |
+| `pending_llm_actions`, `llm_log` | `storage.py` (both follow a group move via `scope_migration`) |
+| Fake-LLM tests (38) | `HouseChoreTracker/test_llm_assist.py` |
+| Eval set (74 cases, en + de, incl. 16 chatter + 6 in-dialogue) | `HouseChoreTracker/evals/intent_cases.jsonl` |
+| Eval runner (compares models, slot accuracy via the bot's parsers) | `HouseChoreTracker/evals/run_intent_eval.py` |
+| Log export / scope ids / eval-case skeletons | `HouseChoreTracker/evals/export_llm_log.py` (deployed) |
+| Config | `.env.example` (`LLM_*`), chore-bot reads them via `env_file: .env` |
+
+Differences from the plan, decided while building:
+
+- `add_once` uses the `schedule` slot (not `when`); `when` is only for vacation.
+- Data-changing intents with a complete set of slots are executed **through the
+  normal command text** (`erledigt Bad putzen`, `umbenennen A -> B`, …) after the
+  yes/no, and the reply ends with "Tipp: nächstes Mal einfach: …" so people learn
+  the command. `add_*`, `edit_chore` and `vacation` use the same functions the
+  dialogues use.
+- Mid-dialogue LLM help is wired for the **chore-creation interview** (schedule,
+  remind time, count-stats, done-confirmation steps). The name step never goes
+  to the LLM (any text is a valid name). The edit and vacation dialogues are
+  only *prefilled* by the LLM, not helped mid-way.
+- If `done_confirmation` is known but an earlier step is missing, the interview
+  still asks it at the end (`pending_chore_setups` has no column for it).
+- Group gating: `LLM_GROUP_MIN_CONFIDENCE` (default 0.6). Below it, and for
+  every `chatter`, a group gets exactly today's reply. `unclear` above it gets
+  the suggestions reply.
+- If the backend rejects the strict JSON schema (HTTP 400), the client retries
+  once in plain `json_object` mode.
+
+## Bring-up runbook
+
+1. **Mac mini** (macOS, native Ollama — not a Proxmox node):
+   ```bash
+   brew install ollama            # or the app from ollama.com
+   launchctl setenv OLLAMA_HOST 0.0.0.0
+   launchctl setenv OLLAMA_KEEP_ALIVE -1
+   # restart Ollama, then:
+   ollama pull qwen2.5:14b        # candidates: qwen2.5:7b, qwen2.5:14b, gemma3:12b, mistral-small
+   ```
+   Avoid "thinking" models (or turn thinking off): they are slow and the
+   reasoning text can break the 8 s budget.
+   DHCP reservation for a fixed IP; firewall: 11434 only from the bot VM.
+2. **From the bot VM**: `curl http://<macmini-ip>:11434/v1/models`
+3. **Eval** (from the laptop or the Mac mini, needs `requests`):
+   ```bash
+   cd HouseChoreTracker
+   python evals/run_intent_eval.py --base-url http://<macmini-ip>:11434/v1 \
+       --model qwen2.5:7b --model qwen2.5:14b --model gemma3:12b
+   ```
+   Pick the model that hits ≥ 90 % intent / ≥ 85 % slots / ≈ 0 % chatter
+   answered at p95 < 3 s. `--only <text>` reruns single cases; `--verbose` shows every answer.
+4. **Deploy** with `LLM_ENABLED=false` first, then find the test group's scope id:
+   `docker exec chore-bot python evals/export_llm_log.py --scopes`
+5. **Turn on** in the VM's `.env`:
+   ```
+   LLM_ENABLED=true
+   LLM_BASE_URL=http://<macmini-ip>:11434/v1
+   LLM_MODEL=<chosen model>
+   LLM_SCOPES=group:<test group id>
+   ```
+   then `docker compose up -d chore-bot`.
+6. **Try in the test group**: "bad ist sauber", "neue aufgabe fenster jeden
+   montag", "was steht an?", "wer kommt heute zum essen?" (must stay silent),
+   and inside `aufgabe` → name → "jeden Montag früh".
+7. **Read the log**: `docker exec chore-bot python evals/export_llm_log.py`
+   (`--outcome failed|chatter|unclear|low_confidence`, `--jsonl` for eval-case skeletons).
+   Kill switch: `LLM_ENABLED=false` + restart — behaviour is then exactly as before.

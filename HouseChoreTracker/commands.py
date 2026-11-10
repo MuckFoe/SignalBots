@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import secrets
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
@@ -33,6 +34,7 @@ from dialogue_utils import STALE_STEP, append_usage_tip, mobile_blocks, parse_st
 from stats_charts import group_chart_kinds, group_stats_chart, user_stats_chart
 from vacation_utils import format_duration, parse_duration, parse_vacation_plan
 from tutorial import parse_tutorial_command, tutorial_text
+import llm_assist
 
 
 SUPPORTED_LANGUAGES = {"en", "de"}
@@ -458,6 +460,28 @@ TEXT = {
         "vacation_started_prep_notice": (
             "🏖️ {name}'s vacation has started. Still to do before leaving:\n{items}"
         ),
+        "llm_understood_as": "💡 Understood as: {command}",
+        "llm_understood_partial": "💡 Understood: {summary}",
+        "llm_confirm": "🤖 Did I get that right?\n{summary}\nReply yes or no.",
+        "llm_discarded": "👍 Okay, discarded. Type help to see all commands.",
+        "llm_command_tip": "Tip: next time just type: {command}",
+        "llm_suggestions_header": "🤔 I didn't quite get that. Did you mean:",
+        "llm_which_chore": "🤔 Which chore do you mean? For example:",
+        "llm_summary_add": "New chore: {name} · {details}",
+        "llm_summary_once": "One-time task: {name} · {details}",
+        "llm_summary_remind": "reminder {time}",
+        "llm_summary_confirm_on": "done must be confirmed",
+        "llm_summary_confirm_off": "no confirmation needed",
+        "llm_summary_stats_on": "counts in the stats",
+        "llm_summary_stats_off": "not counted in the stats",
+        "llm_summary_done": "Mark '{name}' as done",
+        "llm_summary_undo": "Undo the last 'done' of '{name}'",
+        "llm_summary_rename": "Rename '{name}' to '{new_name}'",
+        "llm_summary_set_name": "Save your name as '{name}'",
+        "llm_summary_edit": "'{name}': set {field} to {value}",
+        "llm_summary_vacation": "Vacation: starts {when}, lasts {duration}",
+        "llm_vacation_now": "now",
+        "llm_vacation_in": "in {duration}",
     },
     "de": {
         "help": (
@@ -860,6 +884,28 @@ TEXT = {
         "vacation_started_prep_notice": (
             "🏖️ Der Urlaub von {name} hat begonnen. Vorher noch zu erledigen:\n{items}"
         ),
+        "llm_understood_as": "💡 Verstanden als: {command}",
+        "llm_understood_partial": "💡 Verstanden: {summary}",
+        "llm_confirm": "🤖 Habe ich das richtig verstanden?\n{summary}\nAntworte ja oder nein.",
+        "llm_discarded": "👍 Okay, verworfen. Schreib hilfe für alle Befehle.",
+        "llm_command_tip": "Tipp: nächstes Mal einfach: {command}",
+        "llm_suggestions_header": "🤔 Das habe ich nicht ganz verstanden. Meintest du vielleicht:",
+        "llm_which_chore": "🤔 Welche Aufgabe meinst du? Zum Beispiel:",
+        "llm_summary_add": "Neue Aufgabe: {name} · {details}",
+        "llm_summary_once": "Einmalige Aufgabe: {name} · {details}",
+        "llm_summary_remind": "Erinnerung {time}",
+        "llm_summary_confirm_on": "Erledigung muss bestätigt werden",
+        "llm_summary_confirm_off": "ohne Bestätigung",
+        "llm_summary_stats_on": "zählt in der Statistik",
+        "llm_summary_stats_off": "zählt nicht in der Statistik",
+        "llm_summary_done": "'{name}' als erledigt markieren",
+        "llm_summary_undo": "Letztes 'erledigt' von '{name}' zurücknehmen",
+        "llm_summary_rename": "'{name}' in '{new_name}' umbenennen",
+        "llm_summary_set_name": "Deinen Namen als '{name}' speichern",
+        "llm_summary_edit": "'{name}': {field} auf {value} setzen",
+        "llm_summary_vacation": "Urlaub: beginnt {when}, dauert {duration}",
+        "llm_vacation_now": "jetzt",
+        "llm_vacation_in": "in {duration}",
     },
 }
 
@@ -2922,7 +2968,560 @@ def _guess_command(text: str, language: str) -> str | None:
     return None
 
 
-def handle_command(storage: Storage, message_text: str, sender: str, scope_id: str, group_id: str | None = None) -> str | list[str] | dict:
+# --- LLM command assist ------------------------------------------------------
+# The LLM (llm_assist.py) only proposes an intent + slots. Everything below
+# validates them with the normal parsers and runs the normal code paths.
+
+_MISSING = object()
+
+_LLM_COMMANDS = {
+    "done": {"en": "done {chore}", "de": "erledigt {chore}"},
+    "undo": {"en": "undo {chore}", "de": "rückgängig {chore}"},
+    "rename": {"en": "rename {chore} -> {new_name}", "de": "umbenennen {chore} -> {new_name}"},
+    "set_name": {"en": "name {name}", "de": "name {name}"},
+    "list": {"en": "list", "de": "liste"},
+    "list_extended": {"en": "list extend", "de": "liste erweitert"},
+    "history": {"en": "history", "de": "verlauf"},
+    "my_stats": {"en": "my stats", "de": "meine statistik"},
+    "group_stats": {"en": "group stats", "de": "gruppen statistik"},
+    "help": {"en": "help", "de": "hilfe"},
+    "vacation_status": {"en": "vacation status", "de": "urlaub status"},
+}
+
+_LLM_FIELD_LABELS = {
+    "en": {
+        "name": "name",
+        "schedule": "schedule",
+        "remind_time": "reminder time",
+        "confirmation": "confirmation",
+        "repeat": "overdue reminder",
+    },
+    "de": {
+        "name": "Name",
+        "schedule": "Zeitplan",
+        "remind_time": "Erinnerungszeit",
+        "confirmation": "Bestätigung",
+        "repeat": "erneute Erinnerung",
+    },
+}
+
+_LLM_EDIT_PROMPTS = {
+    "name": "edit_new_name",
+    "schedule": "edit_new_schedule",
+    "confirmation": "edit_new_confirmation",
+    "remind_time": "edit_new_remind_time",
+    "repeat": "edit_new_repeat",
+}
+
+# Interview steps where an answer the step parser rejects is handed to the LLM.
+_LLM_SETUP_STEP_SLOTS = {
+    "schedule": "schedule",
+    "remind_time": "remind_time",
+    "count_stats": "count_stats",
+    "confirmation": "done_confirmation",
+}
+_LLM_SETUP_REJECTIONS = ("usage_add", "usage_once", "usage_reminder_time", "confirm_expected")
+
+
+def _llm_lang(language: str) -> str:
+    return language if language in SUPPORTED_LANGUAGES else "en"
+
+
+def _llm_command(language: str, key: str, **kwargs: object) -> str:
+    return _LLM_COMMANDS[key][_llm_lang(language)].format(**kwargs)
+
+
+def _llm_log(
+    storage: Storage,
+    scope_id: str,
+    sender: str,
+    text: str,
+    raw: str,
+    outcome: str,
+    latency_ms: int | None,
+    context: str = "",
+) -> None:
+    try:
+        storage.log_llm(scope_id, sender, text, raw, outcome, latency_ms, context)
+    except Exception:  # the log is for tuning only; never let it break a reply
+        pass
+
+
+def _prefix_reply(prefix: str, reply: str | list[str] | dict) -> str | list[str] | dict:
+    if isinstance(reply, dict):
+        return {**reply, "reply": mobile_blocks(prefix, reply.get("reply", ""))}
+    if isinstance(reply, list):
+        return [mobile_blocks(prefix, reply[0]), *reply[1:]] if reply else [prefix]
+    return mobile_blocks(prefix, reply)
+
+
+def _append_reply(reply: str | list[str] | dict, suffix: str) -> str | list[str] | dict:
+    if isinstance(reply, dict):
+        return {**reply, "reply": mobile_blocks(reply.get("reply", ""), suffix)}
+    if isinstance(reply, list):
+        return [*reply[:-1], mobile_blocks(reply[-1], suffix)] if reply else [suffix]
+    return mobile_blocks(reply, suffix)
+
+
+def _llm_schedule(raw: str | None, one_shot: bool) -> dict | None:
+    if not raw:
+        return None
+    schedule = parse_schedule(raw)
+    if one_shot:
+        return _as_once_schedule(schedule, raw)
+    return schedule
+
+
+def _llm_remind(raw: str | None) -> object:
+    if raw is None:
+        return _MISSING
+    parsed = parse_reminder_time_answer(raw)
+    return _MISSING if parsed == "invalid" else parsed
+
+
+def _llm_add_details(
+    language: str,
+    schedule: dict | None,
+    remind: object,
+    one_shot: bool,
+    count_stats: bool | None,
+    confirm: bool | None,
+) -> list[str]:
+    parts = []
+    if schedule is not None:
+        parts.append(format_schedule_frequency(schedule, language))
+        if reminder_time_applies(schedule) and remind is not _MISSING:
+            parts.append(_text(language, "llm_summary_remind", time=format_reminder_time_label(remind, language)))
+    if one_shot and count_stats is not None:
+        parts.append(_text(language, "llm_summary_stats_on" if count_stats else "llm_summary_stats_off"))
+    if confirm is not None and (schedule is None or schedule["type"] != "none"):
+        parts.append(_text(language, "llm_summary_confirm_on" if confirm else "llm_summary_confirm_off"))
+    return parts
+
+
+def _llm_advance_chore_setup(
+    storage: Storage,
+    scope_id: str,
+    sender: str,
+    language: str,
+    one_shot: bool,
+    name: str | None,
+    schedule: dict | None,
+    remind: object,
+    count_stats: bool | None,
+    confirm: bool | None,
+    ask_first: bool,
+) -> str:
+    """Create the chore if every detail is known, otherwise continue the normal interview at the first gap."""
+    if schedule is not None and schedule["type"] == "once":
+        one_shot = True
+    if one_shot and schedule is not None and schedule["type"] != "once":
+        schedule = None
+    if schedule is not None and not reminder_time_applies(schedule):
+        remind = None
+    name = (name or "").strip()
+    if not name:
+        storage.start_pending_chore_setup(scope_id, sender, one_shot=one_shot)
+        return _text(language, "setup_chore_name")
+    if _canonical_chore_name(storage, scope_id, name) is not None:
+        storage.clear_pending_chore_setup(scope_id, sender)
+        return _text(language, "already_exists", name=name)
+
+    stored = schedule_to_storage(schedule) if schedule is not None else ""
+    if schedule is None:
+        step, prompt_key = "schedule", "setup_once_schedule" if one_shot else "setup_chore_schedule"
+    elif schedule["type"] == "none":
+        step, prompt_key, confirm = "", "", True
+    elif remind is _MISSING:
+        step, prompt_key = "remind_time", "setup_once_remind_time" if one_shot else "setup_chore_remind_time"
+    elif one_shot and count_stats is None:
+        step, prompt_key = "count_stats", "setup_once_count_stats"
+    elif confirm is None:
+        step, prompt_key = "confirmation", "setup_chore_confirmation"
+    else:
+        step, prompt_key = "", ""
+
+    if step:
+        storage.start_pending_chore_setup(scope_id, sender, one_shot=one_shot)
+        storage.update_pending_chore_setup(
+            scope_id,
+            sender,
+            step,
+            name,
+            stored,
+            None if remind is _MISSING else remind,
+            None if count_stats is None else int(count_stats),
+        )
+        summary = " · ".join([name, *_llm_add_details(language, schedule, remind, one_shot, count_stats, None)])
+        return mobile_blocks(
+            _text(language, "llm_understood_partial", summary=summary),
+            _text(language, prompt_key, name=name),
+        )
+
+    storage.clear_pending_chore_setup(scope_id, sender)
+    plan = {
+        "type": "add",
+        "name": name,
+        "schedule": stored,
+        "remind": remind,
+        "one_shot": one_shot,
+        "count_stats": True if count_stats is None else count_stats,
+        "confirm": bool(confirm),
+    }
+    if not ask_first:
+        return _execute_llm_plan(storage, plan, sender, scope_id, None, language)
+    storage.start_pending_llm_action(scope_id, sender, "add_once" if one_shot else "add_chore", json.dumps(plan))
+    details = _llm_add_details(language, schedule, remind, one_shot, plan["count_stats"] if one_shot else None, confirm)
+    summary = _text(
+        language,
+        "llm_summary_once" if one_shot else "llm_summary_add",
+        name=name,
+        details=" · ".join(details),
+    )
+    return _text(language, "llm_confirm", summary=summary)
+
+
+def _execute_llm_plan(
+    storage: Storage,
+    plan: dict,
+    sender: str,
+    scope_id: str,
+    group_id: str | None,
+    language: str,
+) -> str | list[str] | dict:
+    kind = plan.get("type")
+    if kind == "command":
+        reply = handle_command(storage, plan["command"], sender, scope_id, group_id, _allow_llm=False)
+        return _append_reply(reply, _text(language, "llm_command_tip", command=plan["command"]))
+    if kind == "add":
+        schedule = schedule_from_storage(plan["schedule"])
+        if schedule is None:
+            return _text(language, "usage_add")
+        repeat_schedule = _default_repeat_schedule(schedule) if plan["confirm"] and schedule["type"] != "none" else None
+        return _finalize_chore_creation(
+            storage,
+            scope_id,
+            sender,
+            language,
+            plan["name"],
+            schedule,
+            plan["remind"],
+            plan["confirm"],
+            repeat_schedule,
+            count_in_stats=plan["count_stats"],
+        )
+    if kind == "edit":
+        if _canonical_chore_name(storage, scope_id, plan["chore"]) is None:
+            return _text(language, "not_found", name=plan["chore"])
+        storage.start_pending_chore_edit(scope_id, sender, plan["chore"])
+        storage.update_pending_chore_edit(scope_id, sender, plan["field"])
+        return _handle_pending_chore_edit(storage, plan["value"], sender, scope_id, language) or ""
+    if kind == "vacation":
+        return _start_vacation_from_plan(
+            storage,
+            scope_id,
+            sender,
+            language,
+            {"delay": timedelta(seconds=plan["delay_seconds"]), "duration": timedelta(seconds=plan["duration_seconds"])},
+        )
+    return _text(language, "cancelled")
+
+
+def _llm_ask_confirm(storage: Storage, scope_id: str, sender: str, language: str, intent: str, plan: dict, summary: str) -> str:
+    storage.start_pending_llm_action(scope_id, sender, intent, json.dumps(plan))
+    return _text(language, "llm_confirm", summary=summary)
+
+
+def _llm_known_command(suggestion: str) -> bool:
+    words = suggestion.strip().split()
+    if not words:
+        return False
+    heads = {_fold_command(hint.split()[0]) for hints in COMMAND_HINTS.values() for hint in hints}
+    return _fold_command(words[0]) in heads
+
+
+def _llm_suggestions_reply(language: str, text: str, suggestions: list[str], header_key: str = "llm_suggestions_header") -> str:
+    options = [item for item in suggestions if _llm_known_command(item)]
+    if not options:
+        guess = _guess_command(text, language)
+        if guess:
+            options.append(guess)
+    for default in (_llm_command(language, "list"), _llm_command(language, "help")):
+        if default not in options:
+            options.append(default)
+    lines = "\n".join(f"- {option}" for option in options[:4])
+    return f"{_text(language, header_key)}\n{lines}"
+
+
+def _llm_which_chore(storage: Storage, scope_id: str, language: str, command_key: str) -> str:
+    names = [row["name"] for row in storage.list_chores(scope_id)][:5]
+    if not names:
+        return _llm_suggestions_reply(language, "", [])
+    lines = "\n".join(f"- {_llm_command(language, command_key, chore=name)}" for name in names)
+    return f"{_text(language, 'llm_which_chore')}\n{lines}"
+
+
+def _llm_edit_value(field: str, value: str | None) -> str | None:
+    """The value normalised so the edit dialogue step accepts it, or None if it would not."""
+    if not value:
+        return None
+    if field == "name":
+        return value.strip() or None
+    if field == "schedule":
+        return value if parse_schedule(value) is not None else None
+    if field == "remind_time":
+        return value if parse_reminder_time_answer(value) != "invalid" else None
+    if field == "confirmation":
+        answer = _confirmation_answer(value)
+        if answer is None and value.strip().lower() in {"true", "on", "an"}:
+            answer = True
+        if answer is None and value.strip().lower() in {"false", "off", "aus"}:
+            answer = False
+        if answer is None:
+            return None
+        return "yes" if answer else "no"
+    if field == "repeat":
+        schedule = parse_schedule(value)
+        return value if schedule is not None and schedule["type"] != "none" else None
+    return None
+
+
+def _llm_edit_value_label(field: str, value: str, language: str) -> str:
+    if field == "schedule":
+        return format_schedule_frequency(parse_schedule(value), language)
+    if field == "remind_time":
+        return format_reminder_time_label(parse_reminder_time_answer(value), language)
+    if field == "confirmation":
+        return _text(language, "llm_summary_confirm_on" if value == "yes" else "llm_summary_confirm_off")
+    if field == "repeat":
+        return format_schedule_delay(parse_schedule(value), language)
+    return f"'{value}'"
+
+
+def _llm_handle_intent(
+    storage: Storage,
+    interpretation,
+    sender: str,
+    scope_id: str,
+    group_id: str | None,
+    language: str,
+) -> tuple[str | list[str] | dict, str]:
+    """Returns (reply, outcome for the log)."""
+    intent = interpretation.intent
+    slots = interpretation.slots
+
+    if intent == "show":
+        what = slots.get("what")
+        if what not in llm_assist.SHOW_TARGETS:
+            return _llm_suggestions_reply(language, "", interpretation.suggestions), "show_invalid"
+        command = _llm_command(language, what)
+        reply = handle_command(storage, command, sender, scope_id, group_id, _allow_llm=False)
+        return _prefix_reply(_text(language, "llm_understood_as", command=command), reply), f"show:{what}"
+
+    if intent in {"add_chore", "add_once"}:
+        one_shot = intent == "add_once"
+        reply = _llm_advance_chore_setup(
+            storage,
+            scope_id,
+            sender,
+            language,
+            one_shot,
+            slots.get("name"),
+            _llm_schedule(slots.get("schedule"), one_shot),
+            _llm_remind(slots.get("remind_time")),
+            slots.get("count_stats"),
+            slots.get("done_confirmation"),
+            ask_first=True,
+        )
+        return reply, intent
+
+    if intent in {"mark_done", "undo_done", "delete_chore", "rename_chore", "edit_chore"}:
+        chore = _canonical_chore_name(storage, scope_id, slots.get("chore") or "")
+        command_key = "undo" if intent == "undo_done" else "done"
+        if chore is None:
+            return _llm_which_chore(storage, scope_id, language, command_key), f"{intent}:no_chore"
+
+        if intent == "mark_done":
+            plan = {"type": "command", "command": _llm_command(language, "done", chore=chore)}
+            return _llm_ask_confirm(storage, scope_id, sender, language, intent, plan, _text(language, "llm_summary_done", name=chore)), intent
+        if intent == "undo_done":
+            plan = {"type": "command", "command": _llm_command(language, "undo", chore=chore)}
+            return _llm_ask_confirm(storage, scope_id, sender, language, intent, plan, _text(language, "llm_summary_undo", name=chore)), intent
+        if intent == "delete_chore":
+            # Never delete directly: hand over to the edit dialogue's delete step, which asks itself.
+            storage.start_pending_chore_edit(scope_id, sender, chore)
+            storage.update_pending_chore_edit(scope_id, sender, "delete")
+            return _text(language, "edit_confirm_delete", name=chore), intent
+        if intent == "rename_chore":
+            new_name = (slots.get("new_name") or "").strip()
+            if not new_name:
+                storage.start_pending_chore_edit(scope_id, sender, chore)
+                storage.update_pending_chore_edit(scope_id, sender, "name")
+                return _text(language, "edit_new_name", name=chore), f"{intent}:partial"
+            plan = {"type": "command", "command": _llm_command(language, "rename", chore=chore, new_name=new_name)}
+            summary = _text(language, "llm_summary_rename", name=chore, new_name=new_name)
+            return _llm_ask_confirm(storage, scope_id, sender, language, intent, plan, summary), intent
+
+        field = slots.get("field")
+        if field not in llm_assist.EDIT_FIELDS:
+            storage.start_pending_chore_edit(scope_id, sender, chore)
+            return _text(language, "edit_options", name=chore), f"{intent}:no_field"
+        value = _llm_edit_value(field, slots.get("value"))
+        if value is None:
+            storage.start_pending_chore_edit(scope_id, sender, chore)
+            storage.update_pending_chore_edit(scope_id, sender, field)
+            return _text(language, _LLM_EDIT_PROMPTS[field], name=chore), f"{intent}:partial"
+        plan = {"type": "edit", "chore": chore, "field": field, "value": value}
+        summary = _text(
+            language,
+            "llm_summary_edit",
+            name=chore,
+            field=_LLM_FIELD_LABELS[_llm_lang(language)][field],
+            value=_llm_edit_value_label(field, value, language),
+        )
+        return _llm_ask_confirm(storage, scope_id, sender, language, intent, plan, summary), intent
+
+    if intent == "set_name":
+        name = (slots.get("display_name") or "").strip()
+        if not name or not is_valid_display_name(name):
+            return _llm_suggestions_reply(language, "", [_llm_command(language, "set_name", name="…")]), f"{intent}:invalid"
+        plan = {"type": "command", "command": _llm_command(language, "set_name", name=name)}
+        return _llm_ask_confirm(storage, scope_id, sender, language, intent, plan, _text(language, "llm_summary_set_name", name=name)), intent
+
+    if intent == "vacation":
+        delay = _parse_vacation_when(slots.get("when") or "") if slots.get("when") else None
+        duration = parse_duration(slots.get("duration") or "") if slots.get("duration") else None
+        if delay is not None and duration is not None:
+            plan = {
+                "type": "vacation",
+                "delay_seconds": int(delay.total_seconds()),
+                "duration_seconds": int(duration.total_seconds()),
+            }
+            when_label = (
+                _text(language, "llm_vacation_now")
+                if delay.total_seconds() <= 0
+                else _text(language, "llm_vacation_in", duration=format_duration(delay, language))
+            )
+            summary = _text(language, "llm_summary_vacation", when=when_label, duration=format_duration(duration, language))
+            return _llm_ask_confirm(storage, scope_id, sender, language, intent, plan, summary), intent
+        storage.start_pending_vacation_setup(scope_id, sender)
+        if delay is not None:
+            storage.update_pending_vacation_setup(scope_id, sender, "duration", int(delay.total_seconds() // 86400))
+            return _text(language, "vacation_setup_duration"), f"{intent}:partial"
+        return _text(language, "vacation_setup_when"), f"{intent}:partial"
+
+    return _llm_suggestions_reply(language, "", interpretation.suggestions), "unknown_intent"
+
+
+def _llm_fallback(
+    storage: Storage,
+    text: str,
+    sender: str,
+    scope_id: str,
+    group_id: str | None,
+    language: str,
+) -> str | list[str] | dict | None:
+    """Reply for a message no parser understood, or None to keep today's behaviour."""
+    client = llm_assist.client_for(scope_id)
+    if client is None:
+        return None
+    is_group = group_id is not None
+    chore_names = [row["name"] for row in storage.list_chores(scope_id)]
+    interpretation, raw, latency_ms = llm_assist.interpret(client, text, language, chore_names, is_group)
+    if interpretation is None:
+        _llm_log(storage, scope_id, sender, text, raw, "failed", latency_ms)
+        return None
+    if interpretation.kind == "chatter":
+        _llm_log(storage, scope_id, sender, text, raw, "chatter", latency_ms)
+        return "" if is_group else _llm_suggestions_reply(language, text, interpretation.suggestions)
+    if is_group and interpretation.confidence < llm_assist.group_min_confidence():
+        _llm_log(storage, scope_id, sender, text, raw, "low_confidence", latency_ms)
+        return None
+    if interpretation.kind == "unclear":
+        _llm_log(storage, scope_id, sender, text, raw, "unclear", latency_ms)
+        return _llm_suggestions_reply(language, text, interpretation.suggestions)
+    reply, outcome = _llm_handle_intent(storage, interpretation, sender, scope_id, group_id, language)
+    _llm_log(storage, scope_id, sender, text, raw, outcome, latency_ms)
+    return reply
+
+
+def _llm_fill_chore_setup(
+    storage: Storage,
+    text: str,
+    sender: str,
+    scope_id: str,
+    group_id: str | None,
+    language: str,
+    pending,
+) -> str | None:
+    """An interview answer the step parser rejected: let the LLM read it, possibly filling several steps."""
+    client = llm_assist.client_for(scope_id)
+    if client is None:
+        return None
+    step = pending["step"]
+    one_shot = _pending_is_one_shot(pending)
+    schedule = schedule_from_storage(pending["reminder_schedule"]) if pending["reminder_schedule"] else None
+    remind = pending["reminder_at_minutes"] if step in {"count_stats", "confirmation"} else _MISSING
+    raw_count = pending["count_in_stats"]
+    count_stats = None if raw_count is None else int(raw_count) == 1
+    known = {"name": pending["name"]}
+    if schedule is not None:
+        known["schedule"] = format_schedule_frequency(schedule, "en")
+    if remind is not _MISSING:
+        known["remind_time"] = format_reminder_time_label(remind, "en")
+    asking = _LLM_SETUP_STEP_SLOTS[step]
+    dialogue = {"intent": "add_once" if one_shot else "add_chore", "known": known, "asking": asking}
+    chore_names = [row["name"] for row in storage.list_chores(scope_id)]
+    interpretation, raw, latency_ms = llm_assist.interpret(
+        client, text, language, chore_names, group_id is not None, dialogue
+    )
+    context = f"dialogue:{step}"
+    if interpretation is None or interpretation.kind != "action":
+        _llm_log(storage, scope_id, sender, text, raw, "dialogue_unclear" if interpretation else "failed", latency_ms, context)
+        return None
+    slots = interpretation.slots
+    if schedule is None:
+        schedule = _llm_schedule(slots.get("schedule"), one_shot)
+        if one_shot and schedule is not None and schedule["type"] != "once":
+            schedule = None
+    if remind is _MISSING:
+        remind = _llm_remind(slots.get("remind_time"))
+    if count_stats is None:
+        count_stats = slots.get("count_stats")
+    confirm = slots.get("done_confirmation")
+    answered = {
+        "schedule": schedule is not None,
+        "remind_time": remind is not _MISSING,
+        "count_stats": count_stats is not None,
+        "confirmation": confirm is not None,
+    }[step]
+    if not answered:
+        _llm_log(storage, scope_id, sender, text, raw, "dialogue_no_progress", latency_ms, context)
+        return None
+    _llm_log(storage, scope_id, sender, text, raw, "dialogue_filled", latency_ms, context)
+    return _llm_advance_chore_setup(
+        storage,
+        scope_id,
+        sender,
+        language,
+        one_shot,
+        pending["name"],
+        schedule,
+        remind,
+        count_stats,
+        confirm,
+        ask_first=False,
+    )
+
+
+def handle_command(
+    storage: Storage,
+    message_text: str,
+    sender: str,
+    scope_id: str,
+    group_id: str | None = None,
+    _allow_llm: bool = True,
+) -> str | list[str] | dict:
     text = message_text.strip()
     language = storage.get_language(scope_id)
     is_group = group_id is not None
@@ -2988,6 +3587,18 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
         return _text(language, "admin_help")
     command_text = admin_text if admin_text else text
     command_lowered = command_text.lower()
+
+    # An LLM yes/no check only takes the next message from the same sender; anything else drops it.
+    pending_llm_action = storage.get_pending_llm_action(scope_id, sender)
+    if pending_llm_action is not None:
+        storage.clear_pending_llm_action(scope_id, sender)
+        llm_answer = _confirmation_answer(command_text)
+        if llm_answer is False:
+            return _text(language, "llm_discarded")
+        if llm_answer:
+            return _execute_llm_plan(
+                storage, json.loads(pending_llm_action["plan_json"]), sender, scope_id, group_id, language
+            )
 
     language_request = _language_from_command(command_text)
     if language_request == "":
@@ -3265,8 +3876,19 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
     if pending_name_reply is not None:
         return pending_name_reply
 
+    pending_setup_before = storage.get_pending_chore_setup(scope_id, sender) if _allow_llm else None
     pending_setup_reply = _handle_pending_chore_setup(storage, command_text, sender, scope_id, language)
     if pending_setup_reply is not None:
+        if (
+            pending_setup_before is not None
+            and pending_setup_before["step"] in _LLM_SETUP_STEP_SLOTS
+            and pending_setup_reply in {_text(language, key) for key in _LLM_SETUP_REJECTIONS}
+        ):
+            filled = _llm_fill_chore_setup(
+                storage, command_text, sender, scope_id, group_id, language, pending_setup_before
+            )
+            if filled is not None:
+                return filled
         return pending_setup_reply
 
     pending_edit_reply = _handle_pending_chore_edit(storage, command_text, sender, scope_id, language)
@@ -3680,6 +4302,11 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
         storage.clear_reset_request(scope_id)
         storage.log_action(scope_id, sender, "reset_group")
         return _text(language, "reset_done")
+
+    if _allow_llm:
+        llm_reply = _llm_fallback(storage, command_text, sender, scope_id, group_id, language)
+        if llm_reply is not None:
+            return llm_reply
 
     guess = _guess_command(command_text, language)
     if guess:
