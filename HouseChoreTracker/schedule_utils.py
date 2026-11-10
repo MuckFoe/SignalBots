@@ -224,6 +224,21 @@ def is_no_schedule_phrase(raw: str) -> bool:
     )
 
 
+def split_trailing_no_schedule(text: str) -> str | None:
+    """'Staubwischen ohne zeitplan' -> 'Staubwischen'; None unless the text ends in an explicit "ohne …".
+
+    A lone trailing word only counts if it is "ohne" (or a typo of it), so names like
+    "Licht aus" or "Fenster offen" stay intact.
+    """
+    words = text.strip().rstrip(".!?,;").split()
+    if len(words) >= 3 and is_no_schedule_phrase(" ".join(words[-2:])):
+        return " ".join(words[:-2])
+    last = words[-1].lower() if words else ""
+    if len(words) >= 2 and len(last) == 4 and _within_one_edit(last, "ohne"):
+        return " ".join(words[:-1])
+    return None
+
+
 def parse_schedule(raw: str) -> dict | None:
     schedule = _parse_schedule_exact(raw.strip().rstrip(".!?,;"))
     if schedule is None and is_no_schedule_phrase(raw):

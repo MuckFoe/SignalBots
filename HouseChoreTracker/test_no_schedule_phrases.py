@@ -61,6 +61,22 @@ class NoScheduleChoreCreationTests(unittest.TestCase):
         self._send("Staubwischen")
         self.assertIn("Offene Aufgabe angelegt: Staubwischen.", self._send("ohen"))
 
+    def test_name_answer_with_ohne_creates_open_task(self) -> None:
+        for answer, name in (
+            ("Staubwischen ohne", "Staubwischen"), ("Fenster putzen ohne zeitplan", "Fenster putzen"),
+            ("Keller ohen", "Keller"), ("Paket kein termin.", "Paket"),
+        ):
+            with self.subTest(answer=answer):
+                self._send("aufgabe")
+                self.assertIn(f"Offene Aufgabe angelegt: {name}.", self._send(answer))
+
+    def test_name_answer_without_ohne_keeps_full_name(self) -> None:
+        for answer in ("Licht aus", "Fenster offen", "Kaffee Bohne", "Bad putzen"):
+            with self.subTest(answer=answer):
+                self._send("aufgabe")
+                self.assertIn(f"Wie oft ist '{answer}' fällig?", self._send(answer))
+                self._send("abbrechen")
+
     def test_not_understood_detection(self) -> None:
         self._send("aufgabe")
         self._send("Staubwischen")

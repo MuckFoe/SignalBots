@@ -23,6 +23,7 @@ from schedule_utils import (
     effective_reminder_at_minutes,
     schedule_from_storage,
     schedule_to_storage,
+    split_trailing_no_schedule,
 )
 from storage import Storage
 from bot_registry import load_bot_registry, runtime_bot_id
@@ -2297,6 +2298,13 @@ def _handle_pending_chore_setup(storage: Storage, text: str, sender: str, scope_
         chore_name = text.strip()
         if not chore_name:
             return _text(language, "setup_chore_name")
+        # "Staubwischen ohne" answers the schedule question too: create the open task right away.
+        open_task_name = None if _pending_is_one_shot(pending_setup) else split_trailing_no_schedule(chore_name)
+        if open_task_name:
+            storage.clear_pending_chore_setup(scope_id, sender)
+            return _finalize_chore_creation(
+                storage, scope_id, sender, language, open_task_name, {"type": "none"}, None, True, None
+            )
         storage.update_pending_chore_setup(scope_id, sender, "schedule", chore_name, "", None)
         if _pending_is_one_shot(pending_setup):
             return _text(language, "setup_once_schedule", name=chore_name)
