@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-11-10 – Open tasks without a schedule
+
+### For the groups
+
+Only the chore bot changed; the rental and expense bots get no message.
+
+```chores-de
+📢 Kleine Neuigkeit vom Haushalts-Bot
+
+🛠️ Behoben: Eine Aufgabe ließ sich nicht anlegen, wenn es den gleichen Namen schon in einer anderen Gruppe gab („… konnte nicht angelegt werden“).
+
+📝 Aufgaben ohne festen Termin gehen jetzt leichter: Auf „Wie oft ist … fällig?“ reicht ein „ohne“ (oder „ohne termin“, „kein termin“), und kleine Tippfehler wie „ohen“ versteht der Bot auch. Oder alles auf einmal: aufgabe Spüle putzen ohne
+```
+
+```chores-en
+📢 A small update from the chore bot
+
+🛠️ Fixed: a chore could not be added if another group already had a chore with the same name ("… could not be added").
+
+📝 Chores without a fixed schedule are easier now: to "How often is … due?" just answer "no schedule" (or "none"), and small typos are understood too. Or all at once: add clean sink no schedule
+```
+
+### Under the hood
+
+- Live `chores` table still had the original global `name TEXT NOT NULL
+  UNIQUE` (it got `scope_id` via `ALTER TABLE`, so `_migrate_chores_schema`
+  skipped it). `Storage._scope_chore_name_uniqueness` rebuilds it with
+  `UNIQUE(scope_id, name)`, keeping all columns and ids.
+- `parse_schedule` accepts "ohne", "ohne termin", "kein termin", trailing
+  punctuation and one-letter typos of the "ohne/kein/no schedule" phrases.
+  Answering the name question with "<Name> ohne" creates the open task.
+- Replies with a usage hint or "did you mean" log the message text
+  (`Not understood in <scope>: …`).
+
 ## 2026-10-23 – One person, one member
 
 ### For the groups
