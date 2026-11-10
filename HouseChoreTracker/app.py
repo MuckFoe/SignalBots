@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 from bot_registry import runtime_bot_id
-from commands import format_reminder, format_vacation_event, handle_command, text_for
+from commands import format_reminder, format_vacation_event, handle_command, is_not_understood_reply, text_for
 from signal_client import SignalClient
 from storage import Storage
 from whatsapp_client import WhatsAppClient, is_whatsapp_target
@@ -197,6 +197,9 @@ def internal_handle() -> tuple[dict, int]:
     except Exception as exc:
         app.logger.exception("Failed handling chore command: %s", exc)
         reply = text_for(storage, scope_id, "unexpected_error")
+    else:
+        if is_not_understood_reply(reply):
+            app.logger.warning("Not understood in %s: %r", scope_id, message)
 
     if isinstance(reply, dict):
         return {"status": "processed", **reply}, 200

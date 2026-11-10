@@ -146,7 +146,92 @@ def _split_once_prefix(cleaned: str) -> tuple[bool, str]:
     return False, cleaned
 
 
+NO_SCHEDULE_PHRASES = {
+    "none",
+    "no",
+    "no reminder",
+    "no schedule",
+    "without reminder",
+    "without schedule",
+    "open",
+    "open task",
+    "task",
+    "todo",
+    "anytime",
+    "disabled",
+    "keine",
+    "keine erinnerung",
+    "kein plan",
+    "kein zeitplan",
+    "kein termin",
+    "keinen termin",
+    "ohne",
+    "ohne erinnerung",
+    "ohne plan",
+    "ohne zeitplan",
+    "ohne termin",
+    "offen",
+    "offene aufgabe",
+    "aufgabe offen",
+    "jederzeit",
+    "aus",
+}
+
+# Typos are only forgiven for these, so a near-miss like "Ofen" never turns into "offen".
+_NO_SCHEDULE_TYPO_TARGETS = {
+    "ohne",
+    "ohne zeitplan",
+    "ohne termin",
+    "ohne erinnerung",
+    "kein zeitplan",
+    "kein termin",
+    "keine erinnerung",
+    "no schedule",
+    "without schedule",
+}
+
+
+def _within_one_edit(a: str, b: str) -> bool:
+    """True if a and b differ by at most one insert, delete, substitution or adjacent swap."""
+    if a == b:
+        return True
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        diffs = [i for i in range(len(a)) if a[i] != b[i]]
+        if len(diffs) == 1:
+            return True
+        return len(diffs) == 2 and diffs[1] == diffs[0] + 1 and a[diffs[0]] == b[diffs[1]] and a[diffs[1]] == b[diffs[0]]
+    shorter, longer = (a, b) if len(a) < len(b) else (b, a)
+    for i in range(len(longer)):
+        if longer[:i] + longer[i + 1 :] == shorter:
+            return True
+    return False
+
+
+def is_no_schedule_phrase(raw: str) -> bool:
+    """Whether the text means "no schedule", tolerating trailing punctuation and one typo."""
+    cleaned = " ".join(raw.strip().lower().rstrip(".!?,;").split())
+    if cleaned in NO_SCHEDULE_PHRASES:
+        return True
+    if len(cleaned) < 4:
+        return False
+    # Short targets only forgive swapped/wrong letters ("ohen"), not extra ones ("Bohne").
+    return any(
+        _within_one_edit(cleaned, target)
+        for target in _NO_SCHEDULE_TYPO_TARGETS
+        if len(target) >= 6 or len(cleaned) == len(target)
+    )
+
+
 def parse_schedule(raw: str) -> dict | None:
+    schedule = _parse_schedule_exact(raw.strip().rstrip(".!?,;"))
+    if schedule is None and is_no_schedule_phrase(raw):
+        return {"type": "none"}
+    return schedule
+
+
+def _parse_schedule_exact(raw: str) -> dict | None:
     cleaned = raw.strip().lower()
     if not cleaned:
         return None
@@ -161,32 +246,7 @@ def parse_schedule(raw: str) -> dict | None:
             cleaned = cleaned[len(prefix):].strip()
             every_prefix = True
             break
-    if cleaned in {
-        "none",
-        "no",
-        "no reminder",
-        "no schedule",
-        "without reminder",
-        "without schedule",
-        "open",
-        "open task",
-        "task",
-        "todo",
-        "anytime",
-        "disabled",
-        "keine",
-        "keine erinnerung",
-        "kein plan",
-        "kein zeitplan",
-        "ohne erinnerung",
-        "ohne plan",
-        "ohne zeitplan",
-        "offen",
-        "offene aufgabe",
-        "aufgabe offen",
-        "jederzeit",
-        "aus",
-    }:
+    if cleaned in NO_SCHEDULE_PHRASES:
         return {"type": "none"}
 
     once, rest = _split_once_prefix(cleaned)

@@ -10,6 +10,7 @@ from schedule_utils import (
     format_schedule_delay,
     format_schedule_frequency,
     humanize_schedule,
+    is_no_schedule_phrase,
     is_one_shot_schedule,
     next_due_at,
     normalize_timezone_name,
@@ -868,6 +869,27 @@ def text_for(storage: Storage, scope_id: str, key: str, **kwargs: object) -> str
     return template.format(**kwargs)
 
 
+_NOT_UNDERSTOOD_PREFIXES = tuple(
+    {
+        template.split("{", 1)[0]
+        for texts in TEXT.values()
+        for key, template in texts.items()
+        if key.startswith("usage_") or key in {"did_you_mean", "could_not_add"}
+    }
+)
+# Drop prefixes too short to identify a reply (e.g. "'" from "'{name}' konnte nicht angelegt werden").
+_NOT_UNDERSTOOD_PREFIXES = tuple(prefix for prefix in _NOT_UNDERSTOOD_PREFIXES if len(prefix) >= 6)
+
+
+def is_not_understood_reply(reply: object) -> bool:
+    """Whether the bot answered with a usage hint or "did you mean", i.e. it did not understand the message."""
+    if isinstance(reply, dict):
+        reply = reply.get("reply", "")
+    if isinstance(reply, list):
+        reply = reply[0] if reply else ""
+    return isinstance(reply, str) and reply.startswith(_NOT_UNDERSTOOD_PREFIXES)
+
+
 def format_reminder(storage: Storage, scope_id: str, chore_name: str, requires_confirmation: bool = True) -> str:
     key = "reminder" if requires_confirmation else "reminder_no_confirmation"
     return text_for(storage, scope_id, key, name=chore_name)
@@ -1661,25 +1683,9 @@ def _parse_name_and_schedule(payload: str) -> tuple[str, dict | None]:
         chore_name = payload[:marker_idx].strip()
         schedule_text = payload[marker_idx + 1:].strip()
     else:
-        for suffix in (
-            " no reminder",
-            " no schedule",
-            " without reminder",
-            " without schedule",
-            " open",
-            " open task",
-            " todo",
-            " keine erinnerung",
-            " kein plan",
-            " kein zeitplan",
-            " ohne erinnerung",
-            " ohne plan",
-            " ohne zeitplan",
-            " offen",
-        ):
-            if lowered.endswith(suffix):
-                return payload[: -len(suffix)].strip(), parse_schedule(suffix.strip())
-        parts = payload.split()
+        parts = payload.rstrip(".!?,;").split()
+        if len(parts) >= 3 and is_no_schedule_phrase(" ".join(parts[-2:])):
+            return " ".join(parts[:-2]), {"type": "none"}
         if len(parts) < 2:
             return "", None
         if len(parts) >= 3 and parts[-2].isdigit():
