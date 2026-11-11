@@ -50,6 +50,7 @@ PROJECTS = {
     "HouseBotRouter": [
         "app.py",
         "group_router.py",
+        "identity.py",
         "migrations.py",
         "signal_client.py",
         "whatsapp_client.py",

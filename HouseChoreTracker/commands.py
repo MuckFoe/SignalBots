@@ -10,6 +10,7 @@ from schedule_utils import (
     format_schedule_delay,
     format_schedule_frequency,
     humanize_schedule,
+    is_no_schedule_phrase,
     is_one_shot_schedule,
     next_due_at,
     normalize_timezone_name,
@@ -22,6 +23,7 @@ from schedule_utils import (
     effective_reminder_at_minutes,
     schedule_from_storage,
     schedule_to_storage,
+    split_trailing_no_schedule,
 )
 from storage import Storage
 from bot_registry import load_bot_registry, runtime_bot_id
@@ -343,6 +345,10 @@ TEXT = {
             "Reply with your name, or cancel."
         ),
         "display_name_invalid": "Please use 2-24 characters: letters, numbers, spaces or hyphens.",
+        "display_name_taken": (
+            "👤 {name} is already taken in this group. Please pick another name, e.g. with an initial.\n"
+            "If that is you from before the group moved, send: i am {name}"
+        ),
         "display_name_saved": "👤 Your name is now: {name}",
         "usage_name": "Usage: name <your name>",
         "renamed": "✏️ '{old}' is now called '{new}'.",
@@ -740,6 +746,10 @@ TEXT = {
             "Antworte mit deinem Namen oder mit abbrechen."
         ),
         "display_name_invalid": "Bitte 2-24 Zeichen verwenden: Buchstaben, Zahlen, Leerzeichen oder Bindestriche.",
+        "display_name_taken": (
+            "👤 {name} ist in dieser Gruppe schon vergeben. Bitte wähl einen anderen Namen, z. B. mit Initiale.\n"
+            "Bist du das aus der Zeit vor dem Umzug der Gruppe? Dann schreib: ich bin {name}"
+        ),
         "display_name_saved": "👤 Dein Name ist jetzt: {name}",
         "usage_name": "So geht's: name <dein Name>",
         "renamed": "✏️ '{old}' heißt jetzt '{new}'.",
@@ -858,6 +868,27 @@ def text_for(storage: Storage, scope_id: str, key: str, **kwargs: object) -> str
     language = storage.get_language(scope_id)
     template = TEXT.get(language, TEXT["en"])[key]
     return template.format(**kwargs)
+
+
+_NOT_UNDERSTOOD_PREFIXES = tuple(
+    {
+        template.split("{", 1)[0]
+        for texts in TEXT.values()
+        for key, template in texts.items()
+        if key.startswith("usage_") or key in {"did_you_mean", "could_not_add"}
+    }
+)
+# Drop prefixes too short to identify a reply (e.g. "'" from "'{name}' konnte nicht angelegt werden").
+_NOT_UNDERSTOOD_PREFIXES = tuple(prefix for prefix in _NOT_UNDERSTOOD_PREFIXES if len(prefix) >= 6)
+
+
+def is_not_understood_reply(reply: object) -> bool:
+    """Whether the bot answered with a usage hint or "did you mean", i.e. it did not understand the message."""
+    if isinstance(reply, dict):
+        reply = reply.get("reply", "")
+    if isinstance(reply, list):
+        reply = reply[0] if reply else ""
+    return isinstance(reply, str) and reply.startswith(_NOT_UNDERSTOOD_PREFIXES)
 
 
 def format_reminder(storage: Storage, scope_id: str, chore_name: str, requires_confirmation: bool = True) -> str:
@@ -1653,25 +1684,9 @@ def _parse_name_and_schedule(payload: str) -> tuple[str, dict | None]:
         chore_name = payload[:marker_idx].strip()
         schedule_text = payload[marker_idx + 1:].strip()
     else:
-        for suffix in (
-            " no reminder",
-            " no schedule",
-            " without reminder",
-            " without schedule",
-            " open",
-            " open task",
-            " todo",
-            " keine erinnerung",
-            " kein plan",
-            " kein zeitplan",
-            " ohne erinnerung",
-            " ohne plan",
-            " ohne zeitplan",
-            " offen",
-        ):
-            if lowered.endswith(suffix):
-                return payload[: -len(suffix)].strip(), parse_schedule(suffix.strip())
-        parts = payload.split()
+        parts = payload.rstrip(".!?,;").split()
+        if len(parts) >= 3 and is_no_schedule_phrase(" ".join(parts[-2:])):
+            return " ".join(parts[:-2]), {"type": "none"}
         if len(parts) < 2:
             return "", None
         if len(parts) >= 3 and parts[-2].isdigit():
@@ -2121,6 +2136,8 @@ def _handle_pending_member_name(storage: Storage, text: str, sender: str, scope_
     display_name = text.strip()
     if not is_valid_display_name(display_name):
         return _text(language, "display_name_invalid")
+    if storage.display_name_taken(scope_id, display_name, sender):
+        return _text(language, "display_name_taken", name=display_name)
     storage.set_display_name(scope_id, sender, display_name)
     chore_name = pending["chore_name"]
     storage.clear_pending_member_name(scope_id, sender)
@@ -2281,6 +2298,13 @@ def _handle_pending_chore_setup(storage: Storage, text: str, sender: str, scope_
         chore_name = text.strip()
         if not chore_name:
             return _text(language, "setup_chore_name")
+        # "Staubwischen ohne" answers the schedule question too: create the open task right away.
+        open_task_name = None if _pending_is_one_shot(pending_setup) else split_trailing_no_schedule(chore_name)
+        if open_task_name:
+            storage.clear_pending_chore_setup(scope_id, sender)
+            return _finalize_chore_creation(
+                storage, scope_id, sender, language, open_task_name, {"type": "none"}, None, True, None
+            )
         storage.update_pending_chore_setup(scope_id, sender, "schedule", chore_name, "", None)
         if _pending_is_one_shot(pending_setup):
             return _text(language, "setup_once_schedule", name=chore_name)
@@ -3306,6 +3330,8 @@ def handle_command(storage: Storage, message_text: str, sender: str, scope_id: s
             return _text(language, "usage_name")
         if not is_valid_display_name(name_value):
             return _text(language, "display_name_invalid")
+        if storage.display_name_taken(scope_id, name_value, sender):
+            return _text(language, "display_name_taken", name=name_value.strip())
         storage.set_display_name(scope_id, sender, name_value)
         return _with_usage_tip(
             storage,

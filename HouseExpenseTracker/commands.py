@@ -84,6 +84,10 @@ TEXT = {
         "already_member": "You are already a member as {name}.",
         "name_saved": "👤 Your name is now: {name}",
         "name_invalid": "Please use 2-24 characters: letters, numbers, spaces or hyphens.",
+        "name_taken": (
+            "👤 {name} is already taken in this group. Please pick another name, e.g. with an initial.\n"
+            "If that is you from before the group moved, send: i am {name}"
+        ),
         "usage_name": "Usage: name <your name>",
         "need_member": "Please join first with: join",
         "need_two_members": "At least 2 members are needed to split expenses. Others can join with: join",
@@ -205,6 +209,10 @@ TEXT = {
         "already_member": "Du bist schon dabei als {name}.",
         "name_saved": "👤 Dein Name ist jetzt: {name}",
         "name_invalid": "Bitte 2-24 Zeichen verwenden: Buchstaben, Zahlen, Leerzeichen oder Bindestriche.",
+        "name_taken": (
+            "👤 {name} ist in dieser Gruppe schon vergeben. Bitte wähl einen anderen Namen, z. B. mit Initiale.\n"
+            "Bist du das aus der Zeit vor dem Umzug der Gruppe? Dann schreib: ich bin {name}"
+        ),
         "usage_name": "So geht's: name <dein Name>",
         "need_member": "Bitte tritt zuerst bei mit: beitreten",
         "need_two_members": "Zum Aufteilen braucht es mindestens 2 Mitglieder. Die anderen machen mit über: beitreten",
@@ -872,6 +880,8 @@ def _handle_pending_member_name(storage: Storage, text: str, sender: str, scope_
     display_name = text.strip()
     if not is_valid_display_name(display_name):
         return _text(language, "name_invalid")
+    if storage.display_name_taken(scope_id, display_name, sender):
+        return _text(language, "name_taken", name=display_name)
     storage.set_display_name(scope_id, sender, display_name)
     storage.clear_pending_member_name(scope_id, sender)
     if pending["purpose"] == "setup":
@@ -1231,6 +1241,8 @@ def handle_command(
             return text_for(storage, scope_id, "usage_name")
         if not is_valid_display_name(name_value):
             return text_for(storage, scope_id, "name_invalid")
+        if storage.display_name_taken(scope_id, name_value, sender):
+            return text_for(storage, scope_id, "name_taken", name=name_value.strip())
         storage.set_display_name(scope_id, sender, name_value)
         return text_for(storage, scope_id, "name_saved", name=name_value.strip())
 

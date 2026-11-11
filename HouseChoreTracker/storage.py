@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -110,6 +111,7 @@ class Storage:
             self._ensure_column(conn, "chores", "vacation_delay_seconds", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(conn, "chores", "one_shot", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(conn, "chores", "count_in_stats", "INTEGER NOT NULL DEFAULT 1")
+            self._scope_chore_name_uniqueness(conn)
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS chore_logs (
@@ -416,6 +418,32 @@ class Storage:
         conn.execute("DROP TABLE chores")
         conn.execute("ALTER TABLE chores_new RENAME TO chores")
         conn.execute("PRAGMA foreign_keys = ON")
+
+    def _scope_chore_name_uniqueness(self, conn: sqlite3.Connection) -> None:
+        """Replace a legacy global UNIQUE(name) with UNIQUE(scope_id, name).
+
+        Databases that got scope_id via ALTER TABLE skipped _migrate_chores_schema and kept
+        "name TEXT NOT NULL UNIQUE", so two groups could not both have e.g. "Spüle putzen".
+        The table is rebuilt from its own CREATE statement, keeping every column and id.
+        """
+        name_only_unique = any(
+            index["unique"]
+            and [col["name"] for col in conn.execute(f"PRAGMA index_info('{index['name']}')")] == ["name"]
+            for index in conn.execute("PRAGMA index_list(chores)")
+        )
+        if not name_only_unique:
+            return
+        create_sql = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chores'").fetchone()[0]
+        rebuilt_sql = re.sub(r"\bname TEXT NOT NULL UNIQUE\b", "name TEXT NOT NULL", create_sql, count=1)
+        if rebuilt_sql == create_sql:
+            raise RuntimeError("chores has a UNIQUE(name) index this migration does not recognise")
+        rebuilt_sql = re.sub(r"^CREATE TABLE \"?chores\"?", "CREATE TABLE chores_rebuild", rebuilt_sql.strip())
+        rebuilt_sql = rebuilt_sql[: rebuilt_sql.rstrip().rfind(")")] + ", UNIQUE(scope_id, name))"
+        columns = ", ".join(f'"{col["name"]}"' for col in conn.execute("PRAGMA table_info(chores)"))
+        conn.execute(rebuilt_sql)
+        conn.execute(f"INSERT INTO chores_rebuild ({columns}) SELECT {columns} FROM chores")
+        conn.execute("DROP TABLE chores")
+        conn.execute("ALTER TABLE chores_rebuild RENAME TO chores")
 
     def _migrate_member_display_names(self, conn: sqlite3.Connection) -> None:
         rows = conn.execute(
@@ -1498,6 +1526,18 @@ class Storage:
         if row is None:
             return None
         return row["sender"]
+
+    def display_name_taken(self, scope_id: str, display_name: str, sender: str) -> bool:
+        # A name is only an alias for a sender, so within a group it must point at one person.
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT 1 FROM member_names
+                WHERE scope_id = ? AND LOWER(display_name) = LOWER(?) AND sender != ?
+                """,
+                (scope_id, display_name.strip(), sender.strip()),
+            ).fetchone()
+        return row is not None
 
     def start_pending_member_name(self, scope_id: str, requested_by: str, chore_name: str, ttl_minutes: int | None = None) -> None:
         ttl = ttl_minutes if ttl_minutes is not None else self._dialogue_ttl()

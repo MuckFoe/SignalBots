@@ -20,6 +20,7 @@ from group_router import (
     language_command_for,
     parse_job_and_language,
 )
+from identity import IdentityStore
 import migrations
 from migrations import MigrationStore
 from signal_client import SignalClient
@@ -47,6 +48,7 @@ router = GroupRouter(DATABASE_PATH, CHORE_BOT_URL, RENTAL_BOT_URL, EXPENSE_BOT_U
 migration_store = MigrationStore(DATABASE_PATH)
 signal = SignalClient(SIGNAL_API_URL, SIGNAL_BOT_NUMBER)
 whatsapp = WhatsAppClient(WHATSAPP_API_URL, WHATSAPP_API_KEY)
+identity = IdentityStore(DATABASE_PATH, whatsapp.phone_for_lid)
 outbound_messages: queue.Queue[Dict[str, str]] = queue.Queue()
 seen_messages: dict[str, float] = {}
 seen_messages_lock = threading.Lock()
@@ -136,6 +138,7 @@ def _extract_message_payload(body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     timestamp = envelope.get("timestamp") or data_message.get("timestamp") or ""
     return {
         "source": source,
+        "source_uuid": envelope.get("sourceUuid") or "",
         "message": message,
         "group_id": group_id,
         "timestamp": str(timestamp),
@@ -316,6 +319,19 @@ def _claim_identity(scope_id: str, sender: str, name: str) -> Optional[str]:
     return migrations.text(language, "claim_ok", name=match["display_name"])
 
 
+def _merge_aliases(job: str, scope_id: str, member: str) -> None:
+    # Rows stored under another id of the same number (an older "@c.us", "@lid"
+    # or Signal UUID) fold into the number once per scope.
+    for alias in identity.unmerged_aliases(scope_id, member):
+        try:
+            _call_bot(job, "/internal/merge_member", {"scope_id": scope_id, "old_sender": alias, "new_sender": member})
+        except requests.RequestException:
+            app.logger.exception("Merging %s into %s in %s failed", alias, member, scope_id)
+            continue
+        identity.mark_merged(scope_id, alias, member)
+    migration_store.claim_own(scope_id, [member, *identity.aliases(member)], member)
+
+
 def _claim_hint(scope_id: str, sender: str) -> Optional[str]:
     claims = migration_store.open_claims(scope_id)
     if not claims or migration_store.claimed_name(scope_id, sender):
@@ -360,15 +376,23 @@ def _process_incoming(payload: Optional[Dict[str, Any]]) -> tuple[dict, int]:
     scope_id = f"group:{incoming_group_id}" if incoming_group_id else f"dm:{sender}"
 
     try:
+        if payload.get("source_uuid"):
+            identity.remember(payload["source_uuid"], sender)
+        # In groups the bots know a person by phone number, so the same person
+        # stays one member across Signal and WhatsApp. DMs keep the chat id,
+        # which is also where the bots send DM reminders.
+        member = identity.canonical(sender) if incoming_group_id else sender
+        job = router.resolve_job(scope_id)
         if incoming_group_id:
-            migration_reply = _handle_migration(scope_id, sender, incoming_text, incoming_group_id)
+            if job is not None:
+                _merge_aliases(job, scope_id, member)
+            migration_reply = _handle_migration(scope_id, member, incoming_text, incoming_group_id)
             if migration_reply is not None:
                 _queue_signal_replies(incoming_group_id, sender, migration_reply)
                 return jsonify({"status": "processed"}), 200
         if migration_store.is_moved(scope_id):
             return {"status": "ignored_moved"}, 200
 
-        job = router.resolve_job(scope_id)
         if job is None:
             picked, picked_language = parse_job_and_language(incoming_text)
             if picked:
@@ -377,7 +401,7 @@ def _process_incoming(payload: Optional[Dict[str, Any]]) -> tuple[dict, int]:
                     result = router.forward(
                         picked,
                         scope_id,
-                        sender,
+                        member,
                         language_command_for(picked_language),
                         incoming_group_id,
                     )
@@ -390,7 +414,7 @@ def _process_incoming(payload: Optional[Dict[str, Any]]) -> tuple[dict, int]:
             return jsonify({"status": "processed"}), 200
 
         result = router.forward(
-            job, scope_id, sender, incoming_text, incoming_group_id, incoming_attachments
+            job, scope_id, member, incoming_text, incoming_group_id, incoming_attachments
         )
         if result.get("status") == "ignored_wrong_bot":
             return {"status": "ignored_wrong_bot"}, 200
@@ -404,7 +428,7 @@ def _process_incoming(payload: Optional[Dict[str, Any]]) -> tuple[dict, int]:
             )
         else:
             _queue_signal_replies(incoming_group_id, sender, reply)
-        hint = _claim_hint(scope_id, sender)
+        hint = _claim_hint(scope_id, member)
         if hint:
             _queue_signal_replies(incoming_group_id, sender, hint)
         app.logger.info("Routed %s message for %s", job, scope_id)

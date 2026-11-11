@@ -36,6 +36,18 @@ are told apart by id — WhatsApp ids contain `@` (`…@g.us`, `…@c.us`), Sign
 ids never do. The link is unofficial (WAHA drives a linked WhatsApp Web
 device), so use a number you can afford to lose.
 
+## Release checklist
+
+Every release that changes something a group can notice:
+
+1. Add a `## <date> – <title>` entry at the top of `CHANGELOG.md`, with a
+   ```` ```<bot>-de``` ```` / ```` ```<bot>-en``` ```` block for each bot that
+   changed (`chores`, `rentals`, `expenses`).
+2. Deploy. The live stack runs from `/home/signalbot/bots` on the VM.
+3. Announce it: `python broadcast_changelog.py` (dry run), then
+   `python broadcast_changelog.py --send`. Only the newest entry is sent, and
+   each group only gets its own bot's block.
+
 ## Data (separate, not merged)
 
 - `housechoretracker_bot-data` → `chores.db`
