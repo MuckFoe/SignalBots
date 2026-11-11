@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-11-11 – Rental checks at night
+
+### For the groups
+
+Only the rental bot changed; chore and expense groups get no message.
+
+```rentals-de
+📢 Kurze Info vom Ferienunterkunft-Bot
+
+🌙 Der Bot prüft eure Unterkünfte jetzt einmal pro Nacht (gegen 3 Uhr) statt morgens und abends. Hat sich bei Preis oder Verfügbarkeit etwas geändert, findet ihr die Nachricht also morgens in der Gruppe.
+
+🔄 Wollt ihr zwischendurch den aktuellen Stand, schreibt einfach „jetzt prüfen“.
+```
+
+```rentals-en
+📢 A quick note from the rental watcher
+
+🌙 The bot now checks your rentals once a night (around 3 am) instead of morning and evening. If a price or availability changed, you'll find the message in the group in the morning.
+
+🔄 Want the latest in between? Just write "check".
+```
+
+### Under the hood
+
+- `POLL_TIMES=02:00` in `docker-compose.yml` (was `08:00,20:00`; the
+  container clock is UTC, so 03:00 German time, 04:00 in summer). Keeps the
+  rental bot's LLM page reads (~35 s, thinking on) away from daytime chore
+  messages; the Mac mini's MLX engine serves one request at a time.
+- Chore LLM timeout 8 s → 20 s (loading the model after 30 min idle takes
+  ~9 s).
+
 ## 2026-11-11 – Chore bot understands free text
 
 ### For the groups
