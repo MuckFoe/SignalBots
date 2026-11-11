@@ -91,7 +91,9 @@ services:
       - DATABASE_PATH=/data/rentals.db
       - BOT_INSTANCE_ID=default
       - BOT_INSTANCE_NAME=Rental Tracker Bot
-      - POLL_TIMES=08:00,20:00
+      # Container clock is UTC: 02:00 UTC = 03:00 German time (04:00 in summer).
+      # At night so its LLM page reads don't hold up the chore bot's model calls.
+      - POLL_TIMES=02:00
     volumes:
       - rental-bot-data:/data
     ports:
