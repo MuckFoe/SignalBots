@@ -174,7 +174,7 @@ Plus:
   message can confirm it.
 - Any message that is not a clear yes/no clears the pending check and is
   processed normally, so a forgotten check never blocks the chat. TTL 5 min.
-- LLM down / timeout (8 s) / malformed output → exactly today's behaviour.
+- LLM down / timeout (20 s) / malformed output → exactly today's behaviour.
 
 ### Standard suggestions reply
 
@@ -399,8 +399,10 @@ Differences from the plan, decided while building:
 - The model is shared with the rental bot, which calls it with thinking on
   (~35 s per page). The MLX engine serves one request at a time, even with
   `OLLAMA_NUM_PARALLEL=2` (tested 2026-11-11), so a chore message arriving
-  during a rental extraction can exceed the 8 s timeout. The bot then answers
+  during a rental extraction can exceed the timeout. The bot then answers
   as it would without the LLM.
+- Timeout 20 s (`LLM_TIMEOUT_SECONDS`): loading the model after 30 min idle
+  takes ~9 s (measured 8.8 s), and the router waits at most 30 s for the bot.
 
 ## Bring-up runbook
 

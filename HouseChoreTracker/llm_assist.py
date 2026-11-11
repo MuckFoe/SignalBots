@@ -234,7 +234,7 @@ def client_for(scope_id: str) -> object | None:
     model = os.getenv("LLM_MODEL", "").strip()
     if not base_url or not model:
         return None
-    return LlmClient(base_url, model, _env_float("LLM_TIMEOUT_SECONDS", 8.0))
+    return LlmClient(base_url, model, _env_float("LLM_TIMEOUT_SECONDS", 20.0))
 
 
 def group_min_confidence() -> float:
