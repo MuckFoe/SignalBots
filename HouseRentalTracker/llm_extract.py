@@ -273,31 +273,59 @@ def page_text(html: str, max_chars: int = 24000, captured: list[str] | None = No
 class LlmClient:
     """POSTs to an OpenAI-compatible /chat/completions endpoint. Returns the message text or None."""
 
+    # Structured-output modes, strictest first. Servers that can't do one answer 400/422, or
+    # 501 "structured output is unavailable" (Ollama with some models, e.g. qwen3.6). The
+    # first mode that works is remembered for the client's lifetime.
+    MODES = ("json_schema", "json_object", "plain")
+    UNSUPPORTED_STATUS = {400, 422, 501}
+
     def __init__(self, base_url: str, model: str, timeout: float) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout = timeout
+        self._mode = 0
+
+    def _payload(self, messages: list[dict], mode: str) -> dict:
+        payload: dict = {"model": self.model, "messages": messages, "temperature": 0}
+        if mode == "json_schema":
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "rental", "schema": RESPONSE_SCHEMA, "strict": True},
+            }
+        elif mode == "json_object":
+            payload["response_format"] = {"type": "json_object"}
+        else:
+            # no response_format: the model only sees the schema if the prompt carries it
+            schema_note = (
+                "\n\nReply with ONLY the JSON object, no other text. JSON schema:\n"
+                + json.dumps(RESPONSE_SCHEMA, ensure_ascii=False)
+            )
+            payload["messages"] = [
+                {**m, "content": m["content"] + schema_note} if m.get("role") == "system" else m
+                for m in messages
+            ]
+        return payload
 
     def complete(self, messages: list[dict]) -> str | None:
         import requests
 
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": 0,
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"name": "rental", "schema": RESPONSE_SCHEMA, "strict": True},
-            },
-        }
         try:
-            response = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=self.timeout)
-            if response.status_code == 400:
-                logger.warning("LLM rejected json_schema, retrying in json_object mode: %s", response.text[:200])
-                payload["response_format"] = {"type": "json_object"}
-                response = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=self.timeout)
-            response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
+            while True:
+                mode = self.MODES[self._mode]
+                response = requests.post(
+                    f"{self.base_url}/chat/completions",
+                    json=self._payload(messages, mode),
+                    timeout=self.timeout,
+                )
+                if response.status_code in self.UNSUPPORTED_STATUS and self._mode < len(self.MODES) - 1:
+                    self._mode += 1
+                    logger.warning(
+                        "LLM rejected %s (HTTP %s), switching to %s mode: %s",
+                        mode, response.status_code, self.MODES[self._mode], response.text[:200],
+                    )
+                    continue
+                response.raise_for_status()
+                return response.json()["choices"][0]["message"]["content"]
         except Exception as exc:  # fail open
             logger.warning("Rental LLM call failed: %s", exc)
             return None

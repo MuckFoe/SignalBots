@@ -239,5 +239,57 @@ class PollerTests(unittest.TestCase):
             self.assertEqual(row["available"], 1)
 
 
+class FakeResponse:
+    def __init__(self, status: int, content: str = "") -> None:
+        self.status_code = status
+        self.text = "structured output is unavailable" if status != 200 else ""
+        self._content = content
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+    def json(self) -> dict:
+        return {"choices": [{"message": {"content": self._content}}]}
+
+
+class LlmClientModeTests(unittest.TestCase):
+    MESSAGES = [{"role": "system", "content": "sys"}, {"role": "user", "content": "page"}]
+
+    def run_with(self, responses: list[FakeResponse]):
+        client = llm_extract.LlmClient("http://llm/v1", "m", 5)
+        with mock.patch("requests.post", side_effect=responses) as post:
+            result = client.complete(self.MESSAGES)
+        return client, result, [call.kwargs["json"] for call in post.call_args_list]
+
+    def test_falls_back_to_plain_on_501_and_remembers_it(self):
+        client, result, payloads = self.run_with([FakeResponse(501), FakeResponse(501), FakeResponse(200, "{}")])
+        self.assertEqual(result, "{}")
+        self.assertEqual(payloads[0]["response_format"]["type"], "json_schema")
+        self.assertEqual(payloads[1]["response_format"]["type"], "json_object")
+        self.assertNotIn("response_format", payloads[2])
+        self.assertIn("JSON schema", payloads[2]["messages"][0]["content"])
+        self.assertEqual(payloads[2]["messages"][1]["content"], "page")
+        with mock.patch("requests.post", return_value=FakeResponse(200, "{}")) as post:
+            client.complete(self.MESSAGES)
+        self.assertEqual(post.call_count, 1)
+        self.assertNotIn("response_format", post.call_args.kwargs["json"])
+
+    def test_json_schema_used_when_supported(self):
+        _, result, payloads = self.run_with([FakeResponse(200, "{}")])
+        self.assertEqual(result, "{}")
+        self.assertEqual(len(payloads), 1)
+
+    def test_plain_mode_failure_returns_none(self):
+        _, result, payloads = self.run_with([FakeResponse(501)] * 3)
+        self.assertIsNone(result)
+        self.assertEqual(len(payloads), 3)
+
+    def test_server_error_does_not_switch_mode(self):
+        client, result, _ = self.run_with([FakeResponse(500)])
+        self.assertIsNone(result)
+        self.assertEqual(client.MODES[client._mode], "json_schema")
+
+
 if __name__ == "__main__":
     unittest.main()
