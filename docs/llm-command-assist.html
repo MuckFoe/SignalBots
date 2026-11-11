@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chore Bot LLM Assist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: technical field manual. Sticky contents rail on the left, one reading column,
+   diagrams allowed to run wider than the text. Signal-blue accent, semantic colours only for safety tiers. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --ink: #18202c;
+  --muted: #5a6577;
+  --line: #d5dbe5;
+  --accent: #2a5bd7;
+  --accent-soft: #e4ecfd;
+  --ok: #1d7f52;
+  --ok-soft: #e0f3ea;
+  --warn: #9a6400;
+  --warn-soft: #fbf0d9;
+  --bad: #b3312b;
+  --bad-soft: #fbe5e3;
+  --code-bg: #eef1f6;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151c;
+    --surface: #181e28;
+    --ink: #e3e8f0;
+    --muted: #9aa5b6;
+    --line: #2c3544;
+    --accent: #7ea2ff;
+    --accent-soft: #1d2a4a;
+    --ok: #5fcf98;
+    --ok-soft: #15301f;
+    --warn: #e6b450;
+    --warn-soft: #33280f;
+    --bad: #f08a83;
+    --bad-soft: #3a1a18;
+    --code-bg: #1f2633;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151c;
+  --surface: #181e28;
+  --ink: #e3e8f0;
+  --muted: #9aa5b6;
+  --line: #2c3544;
+  --accent: #7ea2ff;
+  --accent-soft: #1d2a4a;
+  --ok: #5fcf98;
+  --ok-soft: #15301f;
+  --warn: #e6b450;
+  --warn-soft: #33280f;
+  --bad: #f08a83;
+  --bad-soft: #3a1a18;
+  --code-bg: #1f2633;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16.5px;
+  line-height: 1.6;
+}
+a { color: var(--accent); }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+.shell {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 48px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 40px 24px 96px;
+}
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 14px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+nav.toc .label {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: toc; }
+nav.toc li { counter-increment: toc; }
+nav.toc a {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--ink);
+  text-decoration: none;
+}
+nav.toc a::before { content: counter(toc, decimal-leading-zero); color: var(--muted); font-family: var(--font-mono); font-size: 12px; padding-top: 2px; }
+nav.toc a:hover { background: var(--accent-soft); }
+
+main { min-width: 0; }
+.prose { max-width: 70ch; }
+
+header.top { margin-bottom: 40px; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; }
+h1 { font-size: 46px; font-weight: 600; margin: 12px 0 16px; letter-spacing: -.01em; }
+h2 {
+  font-size: 30px;
+  font-weight: 600;
+  margin: 72px 0 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+}
+h2 .num { font-family: var(--font-mono); font-size: 15px; color: var(--accent); font-weight: 500; }
+h3 { font-size: 21px; font-weight: 600; margin: 32px 0 8px; }
+.lede { font-size: 19px; color: var(--muted); max-width: 62ch; }
+
+code, pre, kbd { font-family: var(--font-mono); font-size: .88em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  line-height: 1.5;
+  max-width: 78ch;
+}
+pre code { background: none; padding: 0; }
+pre .c { color: var(--muted); }
+
+.status-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.status {
+  flex: 1 1 200px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.status .k { font-size: 13px; color: var(--muted); }
+.status .v { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+.status .v.ok { color: var(--ok); }
+.status .v.wait { color: var(--warn); }
+
+figure { margin: 28px 0; }
+.diagram {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  overflow-x: auto;
+}
+.diagram svg { display: block; width: 100%; min-width: 640px; height: auto; color: var(--ink); }
+figcaption { font-size: 14px; color: var(--muted); margin-top: 10px; max-width: 75ch; }
+svg text { font-family: var(--font-body); font-size: 13px; fill: currentColor; }
+svg .small { font-size: 11.5px; fill: var(--muted); }
+svg .mono { font-family: var(--font-mono); font-size: 11.5px; }
+svg .title { font-weight: 600; font-size: 14px; }
+svg .box { fill: var(--surface); stroke: currentColor; stroke-width: 1.3; }
+svg .zone { fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 5 4; }
+svg .hl { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
+svg .hl-line { stroke: var(--accent); stroke-width: 1.8; fill: none; }
+svg .line { stroke: currentColor; stroke-width: 1.3; fill: none; }
+svg .dash { stroke: var(--muted); stroke-width: 1.3; fill: none; stroke-dasharray: 4 4; }
+svg .okbox { fill: var(--ok-soft); stroke: var(--ok); stroke-width: 1.4; }
+svg .warnbox { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.4; }
+svg .badbox { fill: var(--bad-soft); stroke: var(--bad); stroke-width: 1.4; }
+svg .filled { fill: var(--ok-soft); stroke: var(--ok); stroke-width: 1.4; }
+svg .accent-text { fill: var(--accent); }
+
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin: 20px 0; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: .02em; background: var(--code-bg); }
+tr:last-child td { border-bottom: none; }
+td code { white-space: nowrap; }
+
+.pill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 9px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.info { background: var(--accent-soft); color: var(--accent); }
+
+.chats { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 24px 0; }
+.chat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat h4 { margin: 0 0 4px; font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+.msg { max-width: 92%; padding: 8px 11px; border-radius: 12px; font-size: 14px; line-height: 1.45; white-space: pre-line; }
+.msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+:root[data-theme="dark"] .msg.user { color: #0d1526; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .msg.user { color: #0d1526; } }
+.msg.bot { align-self: flex-start; background: var(--code-bg); border-bottom-left-radius: 4px; }
+.msg.note { align-self: center; font-size: 12px; color: var(--muted); background: none; padding: 0; }
+.msg .who { display: block; font-size: 11px; opacity: .75; margin-bottom: 2px; }
+
+.decisions { display: grid; gap: 14px; margin: 20px 0; }
+details.decision {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  padding: 0 18px;
+}
+details.decision summary {
+  cursor: pointer;
+  padding: 14px 0;
+  font-weight: 600;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+}
+details.decision summary::-webkit-details-marker { display: none; }
+details.decision summary::after { content: "+"; font-family: var(--font-mono); color: var(--muted); }
+details.decision[open] summary::after { content: "−"; }
+details.decision .body { padding-bottom: 16px; max-width: 70ch; }
+details.decision .body p { margin: 0 0 10px; }
+.choice { font-size: 14px; color: var(--muted); font-weight: 400; display: block; }
+.alt { font-size: 14px; color: var(--muted); }
+
+.steps { counter-reset: step; display: grid; gap: 18px; margin: 24px 0; padding: 0; list-style: none; }
+.step {
+  counter-increment: step;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px 18px 72px;
+  position: relative;
+}
+.step::before {
+  content: counter(step);
+  position: absolute;
+  left: 20px;
+  top: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.step.done::before { background: var(--ok-soft); color: var(--ok); content: "✓"; }
+.step h3 { margin: 4px 0 6px; display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.step p { margin: 0 0 10px; max-width: 68ch; }
+.step .why { font-size: 14.5px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 12px; }
+.step pre { margin: 10px 0; }
+.step ul { margin: 6px 0 10px; padding-left: 20px; max-width: 68ch; }
+
+.callout {
+  background: var(--accent-soft);
+  border-radius: 10px;
+  padding: 14px 18px;
+  max-width: 70ch;
+  margin: 20px 0;
+}
+.callout.warn { background: var(--warn-soft); }
+.callout strong { display: block; margin-bottom: 4px; }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; }
+.card h4 { margin: 0 0 6px; font-family: var(--font-display); font-size: 16px; }
+.card p, .card ul { margin: 0; font-size: 15px; }
+.card ul { padding-left: 18px; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; gap: 0; padding-top: 24px; }
+  nav.toc { position: static; max-height: none; margin-bottom: 24px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--surface); }
+  h1 { font-size: 34px; }
+  h2 { font-size: 25px; }
+}
+@media (max-width: 480px) {
+  .step { padding: 64px 16px 16px; }
+  .step::before { left: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav class="toc" aria-label="Contents">
+  <div class="label">Contents</div>
+  <ol>
+    <li><a href="#overview">What it is</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#pipeline">Message pipeline</a></li>
+    <li><a href="#outcomes">What the bot does with an answer</a></li>
+    <li><a href="#intents">Intents and slots</a></li>
+    <li><a href="#interview">Interview shortcut</a></li>
+    <li><a href="#yesno">The yes/no check</a></li>
+    <li><a href="#examples">Example conversations</a></li>
+    <li><a href="#safety">Safety model</a></li>
+    <li><a href="#decisions">Decisions and why</a></li>
+    <li><a href="#code">Code map</a></li>
+    <li><a href="#config">Configuration</a></li>
+    <li><a href="#plan">Step-by-step plan</a></li>
+    <li><a href="#testing">Testing and eval</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+    <li><a href="#limits">Known limits</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="top">
+  <div class="eyebrow">
+    <span>SignalBots · chore-bot</span>
+    <span>branch feature/llm-command-assist</span>
+    <span>built 2026-11-10</span>
+  </div>
+  <h1>Chore Bot LLM Assist</h1>
+  <p class="lede">A local language model on the Mac mini translates free-text messages into the chore bot's commands. The model only reads and suggests: the bot validates everything with its own parsers and makes every change itself.</p>
+  <div class="status-row">
+    <div class="status"><div class="k">Code</div><div class="v ok">Built</div></div>
+    <div class="status"><div class="k">Tests</div><div class="v ok">9 suites pass</div></div>
+    <div class="status"><div class="k">Mac mini + Ollama</div><div class="v wait">Set up next</div></div>
+    <div class="status"><div class="k">Default</div><div class="v">LLM off</div></div>
+  </div>
+</header>
+
+<section id="overview" class="prose">
+  <h2><span class="num">01</span>What it is</h2>
+  <p>Today the chore bot only understands exact commands like <code>erledigt Bad putzen</code> or <code>aufgabe Fenster jeden Montag</code>. Anything else gets a "Meintest du …?" guess or silence. The LLM assist adds three things:</p>
+  <ol>
+    <li><strong>Free text to command.</strong> "Bad ist sauber" becomes <code>erledigt Bad putzen</code>, after a short yes/no check.</li>
+    <li><strong>Shortcut through dialogues.</strong> If a message already contains the details a multi-step interview would ask for, those steps are skipped. "Erinner uns jeden Montag um 8 ans Fensterputzen, jemand muss es bestätigen" creates the chore after one "ja" instead of five questions.</li>
+    <li><strong>Helpful fallback.</strong> If the bot still can't tell what someone wants, it replies with a short list of commands. Normal group chatter stays unanswered.</li>
+  </ol>
+  <p>Only the chore bot (<code>HouseChoreTracker/</code>) uses it. The router, expense bot and rental bot are untouched.</p>
+  <div class="callout">
+    <strong>The one rule everything follows</strong>
+    The LLM turns a sentence into a small JSON object (an <em>intent</em> plus <em>slots</em>). It never writes to the database and never chooses what happens next. Every slot goes through the parser the bot already uses for that value, and every change runs through the same functions as the typed commands.
+  </div>
+</section>
+
+<section id="architecture">
+  <h2><span class="num">02</span>Architecture</h2>
+  <p class="prose">Nothing about the existing message path changes. The chore bot gets one extra outgoing HTTP call over the LAN to the Mac mini, made only for messages the normal parsers didn't understand.</p>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 900 330" role="img" aria-label="Messages flow from phones through signal-api and bot-router to chore-bot on the bot VM. Only for messages no parser understood, chore-bot calls Ollama on the Mac mini over the LAN and gets back JSON with an intent and slots.">
+        <defs>
+          <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+          <marker id="a1b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a5bd7"/></marker>
+        </defs>
+        <!-- zones -->
+        <rect class="zone" x="150" y="20" width="490" height="290" rx="12"/>
+        <text x="166" y="42" class="small">Bot VM 192.168.178.83 · Docker · /home/signalbot/bots</text>
+        <rect class="zone" x="680" y="20" width="200" height="290" rx="12"/>
+        <text x="696" y="42" class="small">Mac mini · macOS · 32 GB</text>
+
+        <!-- phones -->
+        <rect class="box" x="10" y="110" width="110" height="70" rx="8"/>
+        <text x="65" y="139" text-anchor="middle" class="title">Group chats</text>
+        <text x="65" y="158" text-anchor="middle" class="small">Signal / WhatsApp</text>
+
+        <!-- signal api -->
+        <rect class="box" x="170" y="110" width="120" height="70" rx="8"/>
+        <text x="230" y="139" text-anchor="middle" class="title">signal-api</text>
+        <text x="230" y="158" text-anchor="middle" class="small">whatsapp-api</text>
+
+        <!-- router -->
+        <rect class="box" x="320" y="110" width="110" height="70" rx="8"/>
+        <text x="375" y="139" text-anchor="middle" class="title">bot-router</text>
+        <text x="375" y="158" text-anchor="middle" class="small">picks bot per group</text>
+
+        <!-- chore bot -->
+        <rect class="box" x="460" y="70" width="160" height="150" rx="8"/>
+        <text x="540" y="95" text-anchor="middle" class="title">chore-bot</text>
+        <rect class="box" x="475" y="108" width="130" height="30" rx="5"/>
+        <text x="540" y="128" text-anchor="middle" class="mono">commands.py</text>
+        <rect class="hl" x="475" y="146" width="130" height="30" rx="5"/>
+        <text x="540" y="166" text-anchor="middle" class="mono">llm_assist.py</text>
+        <text x="540" y="204" text-anchor="middle" class="small">/internal/handle</text>
+
+        <!-- db -->
+        <rect class="box" x="475" y="250" width="130" height="44" rx="8"/>
+        <text x="540" y="270" text-anchor="middle" class="mono">chores.db</text>
+        <text x="540" y="286" text-anchor="middle" class="small">+ llm_log, pending_llm_actions</text>
+
+        <!-- ollama -->
+        <rect class="hl" x="700" y="95" width="160" height="100" rx="8"/>
+        <text x="780" y="122" text-anchor="middle" class="title">Ollama</text>
+        <text x="780" y="142" text-anchor="middle" class="small">port 11434</text>
+        <text x="780" y="160" text-anchor="middle" class="small">7–14B model, 4-bit</text>
+        <text x="780" y="178" text-anchor="middle" class="small">Metal GPU</text>
+
+        <!-- arrows -->
+        <line class="line" x1="120" y1="145" x2="166" y2="145" marker-end="url(#a1)"/>
+        <text x="143" y="136" text-anchor="middle" class="small">msg</text>
+        <line class="line" x1="290" y1="145" x2="316" y2="145" marker-end="url(#a1)"/>
+        <line class="line" x1="430" y1="145" x2="456" y2="145" marker-end="url(#a1)"/>
+        <line class="line" x1="540" y1="220" x2="540" y2="246" marker-end="url(#a1)"/>
+        <line class="hl-line" x1="605" y1="152" x2="696" y2="130" marker-end="url(#a1b)"/>
+        <text x="652" y="121" text-anchor="middle" class="small">POST /v1/chat/completions</text>
+        <line class="hl-line" x1="698" y1="170" x2="608" y2="170" marker-end="url(#a1b)"/>
+        <text x="652" y="190" text-anchor="middle" class="small">JSON: intent + slots</text>
+        <text x="652" y="206" text-anchor="middle" class="small">timeout 8 s</text>
+      </svg>
+    </div>
+    <figcaption>The blue path is the only new part. It's used only when no parser matched, and if it fails or is slow, the bot answers the way it does today.</figcaption>
+  </figure>
+</section>
+
+<section id="pipeline">
+  <h2><span class="num">03</span>Message pipeline</h2>
+  <p class="prose">Every message goes through <code>handle_command()</code> in <code>commands.py</code>, which tries deterministic parsers from top to bottom. The LLM hooks in at three points: a yes/no check at the very top, inside the chore-creation interview when an answer is rejected, and at the very end when nothing matched.</p>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 860 520" role="img" aria-label="handle_command first checks for a pending LLM yes/no question from the same sender, then exact commands, then open dialogues, then command parsers, and only at the end calls the LLM fallback.">
+        <defs>
+          <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+          <marker id="a2b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a5bd7"/></marker>
+        </defs>
+        <text x="20" y="28" class="title">Incoming message</text>
+        <line class="line" x1="160" y1="38" x2="160" y2="56" marker-end="url(#a2)"/>
+
+        <!-- 1 -->
+        <rect class="hl" x="20" y="60" width="280" height="64" rx="8"/>
+        <text x="36" y="84" class="title">1 · Pending LLM yes/no?</text>
+        <text x="36" y="104" class="small">same sender only · cleared by any message</text>
+        <line class="hl-line" x1="300" y1="92" x2="496" y2="92" marker-end="url(#a2b)"/>
+        <text x="398" y="84" text-anchor="middle" class="small">"ja" / "nein"</text>
+        <rect class="okbox" x="500" y="66" width="340" height="52" rx="8"/>
+        <text x="516" y="88" class="title">Run the stored plan, or "verworfen"</text>
+        <text x="516" y="107" class="small">anything else: drop the question, keep going</text>
+
+        <line class="line" x1="160" y1="124" x2="160" y2="146" marker-end="url(#a2)"/>
+        <!-- 2 -->
+        <rect class="box" x="20" y="150" width="280" height="56" rx="8"/>
+        <text x="36" y="173" class="title">2 · Exact commands</text>
+        <text x="36" y="192" class="small">help, liste, stats, settings, abbrechen …</text>
+        <line class="line" x1="300" y1="178" x2="496" y2="178" marker-end="url(#a2)"/>
+        <text x="398" y="170" text-anchor="middle" class="small">match</text>
+        <rect class="box" x="500" y="156" width="340" height="44" rx="8"/>
+        <text x="516" y="183" class="title">Normal reply (unchanged)</text>
+
+        <line class="line" x1="160" y1="206" x2="160" y2="228" marker-end="url(#a2)"/>
+        <!-- 3 -->
+        <rect class="box" x="20" y="232" width="280" height="72" rx="8"/>
+        <text x="36" y="255" class="title">3 · Open dialogues</text>
+        <text x="36" y="274" class="small">vacation, name, add-chore interview,</text>
+        <text x="36" y="290" class="small">edit dialogue</text>
+        <line class="hl-line" x1="300" y1="268" x2="496" y2="268" marker-end="url(#a2b)"/>
+        <text x="398" y="260" text-anchor="middle" class="small">step rejects the answer</text>
+        <rect class="hl" x="500" y="238" width="340" height="60" rx="8"/>
+        <text x="516" y="261" class="title">LLM reads the answer in context</text>
+        <text x="516" y="281" class="small">may fill several steps at once, else usual hint</text>
+
+        <line class="line" x1="160" y1="304" x2="160" y2="326" marker-end="url(#a2)"/>
+        <!-- 4 -->
+        <rect class="box" x="20" y="330" width="280" height="56" rx="8"/>
+        <text x="36" y="353" class="title">4 · Command parsers</text>
+        <text x="36" y="372" class="small">erledigt, aufgabe, einmal, bearbeite, lösche …</text>
+        <line class="line" x1="300" y1="358" x2="496" y2="358" marker-end="url(#a2)"/>
+        <text x="398" y="350" text-anchor="middle" class="small">match</text>
+        <rect class="box" x="500" y="336" width="340" height="44" rx="8"/>
+        <text x="516" y="363" class="title">Normal reply (unchanged)</text>
+
+        <line class="line" x1="160" y1="386" x2="160" y2="408" marker-end="url(#a2)"/>
+        <text x="172" y="402" class="small">nothing matched</text>
+        <!-- 5 -->
+        <rect class="hl" x="20" y="412" width="280" height="64" rx="8"/>
+        <text x="36" y="436" class="title">5 · LLM fallback</text>
+        <text x="36" y="456" class="small">_llm_fallback(): ask the model</text>
+        <line class="hl-line" x1="300" y1="430" x2="496" y2="430" marker-end="url(#a2b)"/>
+        <text x="398" y="422" text-anchor="middle" class="small">valid answer</text>
+        <rect class="hl" x="500" y="408" width="340" height="44" rx="8"/>
+        <text x="516" y="435" class="title">See section 04</text>
+        <line class="dash" x1="300" y1="462" x2="496" y2="482" marker-end="url(#a2)"/>
+        <text x="398" y="490" text-anchor="middle" class="small">LLM off / timeout / bad JSON</text>
+        <rect class="box" x="500" y="462" width="340" height="44" rx="8"/>
+        <text x="516" y="489" class="title">Today's tail: "Meintest du …?" or silence</text>
+      </svg>
+    </div>
+    <figcaption>Exact commands and valid dialogue answers never reach the LLM. That keeps the existing behaviour exact and avoids an 8-second wait on messages the bot already understands.</figcaption>
+  </figure>
+</section>
+
+<section id="outcomes">
+  <h2><span class="num">04</span>What the bot does with an answer</h2>
+  <p class="prose">The model always answers with the same JSON shape. <code>kind</code> says whether the message is a request (<code>action</code>), a request the model couldn't decode (<code>unclear</code>), or people talking (<code>chatter</code>).</p>
+<pre><code>{
+  "kind": "action",              <span class="c">// action | unclear | chatter</span>
+  "intent": "add_chore",
+  "slots": {
+    "name": "Fensterputzen",
+    "schedule": "every monday",  <span class="c">// checked by parse_schedule()</span>
+    "remind_time": "08:00",      <span class="c">// checked by parse_reminder_time_answer()</span>
+    "done_confirmation": true,
+    "chore": null, "field": null, "value": null, …  <span class="c">// every slot key, null if unused</span>
+  },
+  "suggestions": [],
+  "confidence": 0.9
+}</code></pre>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 880 440" role="img" aria-label="Decision tree: chatter gives silence in groups, low confidence in groups keeps today's reply, unclear gives suggestions, show runs immediately, complete data-changing intents ask yes or no, incomplete ones start the normal interview at the first gap, and delete goes to the existing delete confirmation.">
+        <defs>
+          <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        </defs>
+        <rect class="hl" x="20" y="185" width="150" height="70" rx="8"/>
+        <text x="95" y="215" text-anchor="middle" class="title">LLM answer</text>
+        <text x="95" y="235" text-anchor="middle" class="small">parsed + validated</text>
+
+        <!-- branch trunk -->
+        <line class="line" x1="170" y1="220" x2="230" y2="220"/>
+        <line class="line" x1="230" y1="40" x2="230" y2="404"/>
+
+        <!-- rows: y centers 40, 100, 160, 220, 280, 340, 400 -->
+        <g>
+          <line class="line" x1="230" y1="40" x2="486" y2="40" marker-end="url(#a3)"/>
+          <text x="244" y="33" class="small">kind = chatter</text>
+          <rect class="box" x="490" y="18" width="370" height="44" rx="8"/>
+          <text x="506" y="38" class="title">Group: silence · DM: suggestions</text>
+          <text x="506" y="54" class="small">a bot answering "lol" is worse than a missed command</text>
+        </g>
+        <g>
+          <line class="line" x1="230" y1="100" x2="486" y2="100" marker-end="url(#a3)"/>
+          <text x="244" y="93" class="small">group + confidence &lt; 0.6</text>
+          <rect class="box" x="490" y="78" width="370" height="44" rx="8"/>
+          <text x="506" y="98" class="title">Today's reply</text>
+          <text x="506" y="114" class="small">"Meintest du …?" or nothing</text>
+        </g>
+        <g>
+          <line class="line" x1="230" y1="160" x2="486" y2="160" marker-end="url(#a3)"/>
+          <text x="244" y="153" class="small">kind = unclear</text>
+          <rect class="box" x="490" y="138" width="370" height="44" rx="8"/>
+          <text x="506" y="158" class="title">"🤔 Meintest du vielleicht:" + up to 4 commands</text>
+          <text x="506" y="174" class="small">only suggestions that start with a real command word</text>
+        </g>
+        <g>
+          <line class="line" x1="230" y1="220" x2="486" y2="220" marker-end="url(#a3)"/>
+          <text x="244" y="213" class="small">intent = show</text>
+          <rect class="okbox" x="490" y="198" width="370" height="44" rx="8"/>
+          <text x="506" y="218" class="title">Run now, prefixed "💡 Verstanden als: liste"</text>
+          <text x="506" y="234" class="small">read-only, so no question needed</text>
+        </g>
+        <g>
+          <line class="line" x1="230" y1="280" x2="486" y2="280" marker-end="url(#a3)"/>
+          <text x="244" y="273" class="small">data change, all slots valid</text>
+          <rect class="warnbox" x="490" y="258" width="370" height="44" rx="8"/>
+          <text x="506" y="278" class="title">Summary + "Antworte ja oder nein"</text>
+          <text x="506" y="294" class="small">plan stored in pending_llm_actions for 5 min</text>
+        </g>
+        <g>
+          <line class="line" x1="230" y1="340" x2="486" y2="340" marker-end="url(#a3)"/>
+          <text x="244" y="333" class="small">data change, slots missing</text>
+          <rect class="warnbox" x="490" y="318" width="370" height="44" rx="8"/>
+          <text x="506" y="338" class="title">"💡 Verstanden: …" + next interview question</text>
+          <text x="506" y="354" class="small">the existing dialogue code takes over</text>
+        </g>
+        <g>
+          <line class="line" x1="230" y1="400" x2="486" y2="400" marker-end="url(#a3)"/>
+          <text x="244" y="393" class="small">intent = delete_chore</text>
+          <rect class="badbox" x="490" y="378" width="370" height="44" rx="8"/>
+          <text x="506" y="398" class="title">Existing "… samt Verlauf löschen?" step</text>
+          <text x="506" y="414" class="small">never maps to the direct lösche command</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>Green runs immediately, amber needs one more answer from the sender, red uses the bot's own strongest confirmation. A slot that fails its parser counts as missing, so a bad guess turns into a question rather than a wrong change.</figcaption>
+  </figure>
+</section>
+
+<section id="intents">
+  <h2><span class="num">05</span>Intents and slots</h2>
+  <p class="prose">The model can only pick from this list. Admin, reset, language and timezone commands aren't in it, so the LLM can't reach them at all.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Intent</th><th>Slots</th><th>Checked by</th><th>When complete</th><th>When incomplete</th></tr></thead>
+      <tbody>
+        <tr><td><code>show</code></td><td>what</td><td>fixed list (list, history, my_stats …)</td><td><span class="pill ok">runs now</span></td><td>suggestions</td></tr>
+        <tr><td><code>add_chore</code></td><td>name, schedule, remind_time, done_confirmation</td><td><code>parse_schedule</code>, <code>parse_reminder_time_answer</code></td><td><span class="pill warn">yes/no</span></td><td>interview at first gap</td></tr>
+        <tr><td><code>add_once</code></td><td>name, schedule, remind_time, count_stats, done_confirmation</td><td>same + <code>_as_once_schedule</code></td><td><span class="pill warn">yes/no</span></td><td>one-time interview at first gap</td></tr>
+        <tr><td><code>mark_done</code></td><td>chore</td><td>must match an existing chore</td><td><span class="pill warn">yes/no</span></td><td>"Welche Aufgabe?" + list</td></tr>
+        <tr><td><code>undo_done</code></td><td>chore</td><td>must match an existing chore</td><td><span class="pill warn">yes/no</span></td><td>"Welche Aufgabe?" + list</td></tr>
+        <tr><td><code>edit_chore</code></td><td>chore, field, value</td><td>the edit dialogue's parser for that field</td><td><span class="pill warn">yes/no</span></td><td>edit dialogue at that field</td></tr>
+        <tr><td><code>rename_chore</code></td><td>chore, new_name</td><td>chore must exist</td><td><span class="pill warn">yes/no</span></td><td>"Wie soll … heißen?"</td></tr>
+        <tr><td><code>set_name</code></td><td>display_name</td><td><code>is_valid_display_name</code></td><td><span class="pill warn">yes/no</span></td><td>suggestions</td></tr>
+        <tr><td><code>vacation</code></td><td>when, duration</td><td><code>_parse_vacation_when</code>, <code>parse_duration</code></td><td><span class="pill warn">yes/no</span></td><td>vacation dialogue</td></tr>
+        <tr><td><code>delete_chore</code></td><td>chore</td><td>chore must exist</td><td><span class="pill bad">existing delete step</span></td><td>"Welche Aufgabe?"</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>Slot formats the prompt asks for</h3>
+  <p class="prose">The prompt tells the model to write values in the exact phrases the bot's parsers already accept. That way the model does the language work ("jeden zweiten Montag morgens") and the parser does the strict work.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Slot</th><th>Accepted values</th><th>Example input → slot</th></tr></thead>
+      <tbody>
+        <tr><td>schedule (recurring)</td><td><code>every day</code>, <code>every 2 weeks</code>, <code>every monday</code>, <code>every 3 months</code>, <code>none</code></td><td>"alle zwei Wochen" → <code>every 2 weeks</code></td></tr>
+        <tr><td>schedule (one-time)</td><td><code>today</code>, <code>tomorrow</code>, <code>friday</code>, <code>3 days</code></td><td>"übermorgen" → <code>2 days</code></td></tr>
+        <tr><td>remind_time</td><td><code>HH:MM</code> or <code>anytime</code>; morning 08:00, noon 12:00, evening 19:00</td><td>"abends" → <code>19:00</code></td></tr>
+        <tr><td>chore</td><td>copied exactly from the group's existing chores (sent with every request)</td><td>"bad ist sauber" → <code>Bad putzen</code></td></tr>
+        <tr><td>when / duration</td><td><code>now</code>, <code>1 week</code>, <code>5 days</code></td><td>"ab nächster Woche 2 Wochen" → <code>1 week</code> / <code>2 weeks</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="prose alt">The bot has no "every 2nd Monday" schedule. A weekday schedule is always weekly, so "jeden zweiten Montag" becomes <code>every 2 weeks</code>.</p>
+</section>
+
+<section id="interview">
+  <h2><span class="num">06</span>Interview shortcut</h2>
+  <p class="prose">Creating a chore by hand is a five-step interview stored in the <code>pending_chore_setups</code> table. The LLM doesn't build a parallel flow. It writes the details it found into that same row and sets <code>step</code> to the first missing one. From there the existing, tested dialogue code takes over unchanged, including cancel, stale-dialogue handling and the final create.</p>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 880 250" role="img" aria-label="The chore-creation interview has the steps name, schedule, reminder time, count in stats for one-time tasks only, and confirmation. For the message 'fenster jeden montag', name and schedule are filled from the message and the bot enters the interview at the reminder-time step.">
+        <defs>
+          <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+          <marker id="a4b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a5bd7"/></marker>
+        </defs>
+        <text x="20" y="30" class="title">Message: "fenster jeden montag"</text>
+        <text x="20" y="50" class="small">LLM → name = Fensterputzen, schedule = every monday, everything else null</text>
+
+        <rect class="filled" x="20" y="90" width="130" height="64" rx="8"/>
+        <text x="85" y="117" text-anchor="middle" class="title">name</text>
+        <text x="85" y="137" text-anchor="middle" class="small">✓ Fensterputzen</text>
+
+        <rect class="filled" x="190" y="90" width="130" height="64" rx="8"/>
+        <text x="255" y="117" text-anchor="middle" class="title">schedule</text>
+        <text x="255" y="137" text-anchor="middle" class="small">✓ jeden Montag</text>
+
+        <rect class="hl" x="360" y="90" width="140" height="64" rx="8"/>
+        <text x="430" y="117" text-anchor="middle" class="title">remind_time</text>
+        <text x="430" y="137" text-anchor="middle" class="small">asked now</text>
+
+        <rect class="box" x="540" y="90" width="130" height="64" rx="8" stroke-dasharray="5 4"/>
+        <text x="605" y="117" text-anchor="middle" class="title">count_stats</text>
+        <text x="605" y="137" text-anchor="middle" class="small">one-time only</text>
+
+        <rect class="box" x="710" y="90" width="150" height="64" rx="8"/>
+        <text x="785" y="117" text-anchor="middle" class="title">confirmation</text>
+        <text x="785" y="137" text-anchor="middle" class="small">asked next</text>
+
+        <line class="line" x1="150" y1="122" x2="186" y2="122" marker-end="url(#a4)"/>
+        <line class="line" x1="320" y1="122" x2="356" y2="122" marker-end="url(#a4)"/>
+        <line class="line" x1="500" y1="122" x2="536" y2="122" marker-end="url(#a4)"/>
+        <line class="line" x1="670" y1="122" x2="706" y2="122" marker-end="url(#a4)"/>
+
+        <path class="hl-line" d="M430,64 L430,86" marker-end="url(#a4b)"/>
+        <text x="440" y="74" class="small accent-text">bot enters here</text>
+
+        <text x="20" y="192" class="small">Step skipping keeps the existing rules: remind_time is skipped when the schedule has no time of day</text>
+        <text x="20" y="210" class="small">(e.g. every 3 hours), count_stats is only asked for one-time tasks, and "no schedule" creates an open task at once.</text>
+        <text x="20" y="232" class="small">Answers typed during the interview are explicit, so there is no extra yes/no at the end.</text>
+      </svg>
+    </div>
+    <figcaption>Green steps came from the message, blue is where the bot continues. If every step is known, there is no interview at all, only the yes/no summary.</figcaption>
+  </figure>
+  <h3>Help in the middle of an interview</h3>
+  <p class="prose">If someone is in the interview and their answer doesn't fit the current step (today that gives a "So geht's: …" hint), the answer goes to the LLM together with what's already known and which step is being asked. "jeden Montag früh" at the schedule step fills <em>schedule</em> and <em>remind_time</em> together and jumps straight to the confirmation question. If the model can't fill the asked-for step, the usual hint is shown. <code>abbrechen</code> and anything the step parser already understands never go to the LLM.</p>
+</section>
+
+<section id="yesno">
+  <h2><span class="num">07</span>The yes/no check</h2>
+  <p class="prose">Any change the LLM proposes waits for one confirmation from the person who wrote the message. This guards against the one failure mode that hurts: a wrong guess that silently changes data.</p>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 860 280" role="img" aria-label="State machine of the yes/no check: a complete intent stores a plan and waits. Yes from the same sender runs it, no discards it, any other message from that sender drops it and is processed normally, other members' messages are ignored, and it expires after five minutes.">
+        <defs>
+          <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        </defs>
+        <rect class="box" x="20" y="110" width="160" height="60" rx="8"/>
+        <text x="100" y="136" text-anchor="middle" class="title">Complete intent</text>
+        <text x="100" y="155" text-anchor="middle" class="small">all slots valid</text>
+
+        <line class="line" x1="180" y1="140" x2="286" y2="140" marker-end="url(#a5)"/>
+        <text x="233" y="131" text-anchor="middle" class="small">store plan</text>
+
+        <rect class="warnbox" x="290" y="95" width="210" height="90" rx="10"/>
+        <text x="395" y="125" text-anchor="middle" class="title">Waiting for answer</text>
+        <text x="395" y="145" text-anchor="middle" class="small">key: (group, sender)</text>
+        <text x="395" y="163" text-anchor="middle" class="small">expires after 5 min</text>
+
+        <line class="line" x1="500" y1="110" x2="636" y2="50" marker-end="url(#a5)"/>
+        <text x="560" y="68" text-anchor="middle" class="small">"ja"</text>
+        <rect class="okbox" x="640" y="24" width="200" height="50" rx="8"/>
+        <text x="740" y="46" text-anchor="middle" class="title">Run the plan</text>
+        <text x="740" y="63" text-anchor="middle" class="small">+ tip with the exact command</text>
+
+        <line class="line" x1="500" y1="130" x2="636" y2="118" marker-end="url(#a5)"/>
+        <text x="575" y="114" text-anchor="middle" class="small">"nein"</text>
+        <rect class="box" x="640" y="96" width="200" height="44" rx="8"/>
+        <text x="740" y="123" text-anchor="middle" class="title">"Okay, verworfen."</text>
+
+        <line class="line" x1="500" y1="160" x2="636" y2="190" marker-end="url(#a5)"/>
+        <text x="575" y="196" text-anchor="middle" class="small">anything else</text>
+        <rect class="box" x="640" y="166" width="200" height="50" rx="8"/>
+        <text x="740" y="188" text-anchor="middle" class="title">Drop it</text>
+        <text x="740" y="205" text-anchor="middle" class="small">message handled normally</text>
+
+        <path class="dash" d="M395,185 L395,240 L640,240" marker-end="url(#a5)"/>
+        <text x="410" y="232" class="small">5 min pass</text>
+        <rect class="box" x="640" y="226" width="200" height="40" rx="8"/>
+        <text x="740" y="251" text-anchor="middle" class="title">Expired, nothing happens</text>
+
+        <text x="20" y="232" class="small">"ja" from Anna does nothing for Mo's question:</text>
+        <text x="20" y="250" class="small">each person only answers their own.</text>
+      </svg>
+    </div>
+    <figcaption>A forgotten question can never block the chat: the sender's next message clears it, and it times out on its own.</figcaption>
+  </figure>
+</section>
+
+<section id="examples">
+  <h2><span class="num">08</span>Example conversations</h2>
+  <p class="prose">These are replies the code produces, slightly shortened (timestamps and usage tips removed).</p>
+  <div class="chats">
+    <div class="chat">
+      <h4>Free text → done</h4>
+      <div class="msg user"><span class="who">Mo</span>bad ist sauber</div>
+      <div class="msg bot">🤖 Habe ich das richtig verstanden?
+'Bad putzen' als erledigt markieren
+Antworte ja oder nein.</div>
+      <div class="msg user"><span class="who">Mo</span>ja</div>
+      <div class="msg bot">✅ Erledigt: Bad putzen – von Mo
+Rückgängig: rückgängig Bad putzen
+
+Tipp: nächstes Mal einfach: erledigt Bad putzen</div>
+    </div>
+    <div class="chat">
+      <h4>Everything in one message</h4>
+      <div class="msg user"><span class="who">Mo</span>Erinner uns jeden Montag um 8 ans Fensterputzen, jemand muss es bestätigen</div>
+      <div class="msg bot">🤖 Habe ich das richtig verstanden?
+Neue Aufgabe: Fensterputzen · jeden Montag · Erinnerung um 08:00 · Erledigung muss bestätigt werden
+Antworte ja oder nein.</div>
+      <div class="msg user"><span class="who">Mo</span>ja</div>
+      <div class="msg bot">✅ Aufgabe angelegt: Fensterputzen (jeden Montag).</div>
+    </div>
+    <div class="chat">
+      <h4>Partial → interview continues</h4>
+      <div class="msg user"><span class="who">Mo</span>fenster jeden montag</div>
+      <div class="msg bot">💡 Verstanden: Fensterputzen · jeden Montag
+
+Um wie viel Uhr soll der Bot an 'Fensterputzen' erinnern (Ortszeit der Gruppe)? …</div>
+      <div class="msg user"><span class="who">Mo</span>08:00</div>
+      <div class="msg bot">Muss 'Fensterputzen' als erledigt abgehakt werden? …</div>
+    </div>
+    <div class="chat">
+      <h4>Group chatter stays quiet</h4>
+      <div class="msg user"><span class="who">Anna</span>wer kommt heute zum essen?</div>
+      <div class="msg note">LLM: chatter → no reply</div>
+      <div class="msg user"><span class="who">Mo</span>was steht noch an?</div>
+      <div class="msg bot">💡 Verstanden als: liste
+
+(the normal chore list)</div>
+    </div>
+  </div>
+</section>
+
+<section id="safety">
+  <h2><span class="num">09</span>Safety model</h2>
+  <div class="grid2">
+    <div class="card"><h4><span class="pill ok">Read-only</span></h4><p><code>show</code> runs at once with an "understood as" hint. Worst case: the wrong list is shown.</p></div>
+    <div class="card"><h4><span class="pill warn">Data-changing</span></h4><p>add, once, done, undo, edit, rename, name, vacation. Yes/no if complete, otherwise the normal interview.</p></div>
+    <div class="card"><h4><span class="pill bad">Destructive</span></h4><p><code>delete_chore</code> only opens the edit dialogue's delete step, which asks its own question. The direct <code>lösche</code> command is never used.</p></div>
+    <div class="card"><h4><span class="pill info">Not reachable</span></h4><p>Admin, reset group, language, timezone. Not in the intent list, and an unknown intent is thrown away by the parser.</p></div>
+  </div>
+  <ul class="prose">
+    <li>Execution always goes through the same functions as typed commands, so admin checks, "gibt es schon" and "nicht gefunden" behave identically.</li>
+    <li>The LLM output is limited by a JSON schema, and <code>parse_output()</code> rejects anything that doesn't fit: unknown kind, unknown intent, an action without an intent.</li>
+    <li>Fail open: no answer within 8 s, a connection error, an HTTP error or broken JSON all give today's reply.</li>
+    <li>Ollama has no authentication. It must only be reachable from the bot VM (firewall on the Mac mini, LAN only).</li>
+  </ul>
+</section>
+
+<section id="decisions">
+  <h2><span class="num">10</span>Decisions and why</h2>
+  <p class="prose">Click a decision to read the reasoning and the alternative that was rejected.</p>
+  <div class="decisions">
+    <details class="decision" open>
+      <summary><span>A narrow translator, not an agent<span class="choice">One message in, one JSON object out. The bot decides what happens.</span></span></summary>
+      <div class="body">
+        <p>An agent setup (tool calling, or MCP) lets the model choose which tools to call and when, often in a loop. That's the "chatbot in the group" behaviour we want to avoid, and it's harder to guard: you need rules against wrong or repeated calls.</p>
+        <p>With a fixed schema, the worst the model can do is produce a wrong JSON object, which then has to pass the parsers and a yes/no check.</p>
+        <p class="alt">Rejected: MCP server over the bots' /internal endpoints. It would make sense later for a general assistant ("who skipped most chores last month?"), not for command translation.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>Validate every slot with the existing parsers<span class="choice">The model normalises language; the parser decides if the value is valid.</span></span></summary>
+      <div class="body">
+        <p>The parsers (<code>parse_schedule</code>, <code>parse_reminder_time_answer</code>, <code>parse_duration</code> …) are already tested and define what the bot can store. If the model writes "every 2nd Monday", the parser rejects it, the slot counts as missing, and the user is asked. A bad guess becomes a question, never a wrong value in the database.</p>
+        <p class="alt">Rejected: letting the model produce the storage format directly. That's a second source of truth that drifts from the parser.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>Prefill the existing interviews<span class="choice">Write found slots into pending_chore_setups and jump to the first gap.</span></span></summary>
+      <div class="body">
+        <p>The interview code already handles cancel, stale dialogues, step order and the final create. Reusing it means the LLM path can't get these wrong, and there's nothing new to maintain. The table needed no schema change, since every slot already has a column.</p>
+        <p class="alt">Rejected: a separate LLM-driven dialogue. It would duplicate the step logic and behave subtly differently.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>Ask yes/no before every data change<span class="choice">Decided on 2026-11-07, from day one of the trial run.</span></span></summary>
+      <div class="body">
+        <p>A misunderstood "done" or a chore created with the wrong schedule is annoying and erodes trust in the bot. One extra "ja" is cheap. The question is tied to the sender and dropped by any other message, so it never blocks the group.</p>
+        <p>Read-only <code>show</code> skips it, since showing the wrong list does no harm. Answers inside an interview skip it too, since they are explicit.</p>
+        <p class="alt">Possible later: skip the check above a high confidence once the log shows the model is reliable.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>Execute through the typed command, then show it<span class="choice">After "ja", run e.g. "erledigt Bad putzen" and add "Tipp: nächstes Mal einfach: …".</span></span></summary>
+      <div class="body">
+        <p>Running the real command text guarantees identical behaviour, including the "what's your name?" prompt on the first done. The tip teaches the group the fast way, so over time fewer messages need the LLM at all.</p>
+        <p>Adding a chore, editing and vacation call the same functions the dialogues call (<code>_finalize_chore_creation</code>, the edit dialogue step, <code>_start_vacation_from_plan</code>), because the command text can't express every option.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>Every unmatched group message goes to the LLM<span class="choice">Decided on 2026-11-07, with group chatter strictly filtered.</span></span></summary>
+      <div class="body">
+        <p>People rarely address the bot by name, so filtering by "@bot" would miss most requests. Instead the prompt says that when in doubt, a message is chatter. Groups get a reply only for <code>action</code>/<code>unclear</code> at confidence ≥ <code>LLM_GROUP_MIN_CONFIDENCE</code> (0.6). The eval measures how often chatter gets a reply, and the target is ≈ 0 %.</p>
+        <p class="alt">If chatter still gets answered: raise the threshold, then add more chatter examples to the prompt.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>Local model on the Mac mini, native macOS<span class="choice">Ollama as a LAN service, not a Proxmox node, not a cloud API.</span></span></summary>
+      <div class="body">
+        <p>Group messages stay in the house. On macOS, Ollama uses the Apple GPU (Metal) and unified memory, so a 14B model answers in about 1–3 s. Proxmox can't run on Apple Silicon (ARM), and a Linux VM would fall back to the CPU and be several times slower. A 2-node Proxmox cluster would also have quorum problems.</p>
+        <p>Connect by fixed IP (DHCP reservation), because mDNS names like <code>macmini.local</code> are unreliable from inside Docker.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>OpenAI-compatible API with a JSON schema<span class="choice">POST /v1/chat/completions, response_format = json_schema, temperature 0.</span></span></summary>
+      <div class="body">
+        <p>Ollama, LM Studio, llama.cpp and MLX all speak this API, so the backend can change without touching the code. A JSON schema makes the server constrain the output so it always parses. Small models are much more reliable at constrained JSON than at tool calling.</p>
+        <p>If a backend rejects the strict schema (HTTP 400), the client retries once in plain <code>json_object</code> mode. The prompt still describes the format.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>Fail open, off by default, per-group allowlist<span class="choice">LLM_ENABLED=false by default; LLM_SCOPES limits it to the test group.</span></span></summary>
+      <div class="body">
+        <p>The bot must never get worse because the Mac mini is asleep. Every failure path returns exactly today's reply, and an 8 s timeout keeps well under the router's 30 s limit. The allowlist lets you try it in one group without touching the others, and turning it off is one env var.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>Log every LLM call during the trial run<span class="choice">Decided on 2026-11-07: llm_log keeps text, raw output, outcome and latency.</span></span></summary>
+      <div class="body">
+        <p>Misses in real use are the best eval cases. <code>export_llm_log.py --jsonl</code> turns log rows into eval-case skeletons. Keep the log as long as testing needs; there's no announcement in the groups (also decided on 2026-11-07). The log moves with a group if its scope id migrates.</p>
+      </div>
+    </details>
+    <details class="decision">
+      <summary><span>Lazy import of requests<span class="choice">llm_assist.py imports requests inside the call.</span></span></summary>
+      <div class="body">
+        <p>The bot and its tests load even where <code>requests</code> isn't installed. The container has it via <code>requirements.txt</code>, so no new dependency was added.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section id="code">
+  <h2><span class="num">11</span>Code map</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>File</th><th>What's in it</th></tr></thead>
+      <tbody>
+        <tr><td><code>HouseChoreTracker/llm_assist.py</code></td><td><code>LlmClient</code> (HTTP call, fail open), <code>SYSTEM_PROMPT</code> with intents, formats and examples, <code>RESPONSE_SCHEMA</code>, <code>build_messages()</code>, <code>parse_output()</code>, <code>interpret()</code>, <code>client_for(scope_id)</code> (env + allowlist), <code>set_client()</code> for tests.</td></tr>
+        <tr><td><code>commands.py</code> · section "LLM command assist"</td><td><code>_llm_fallback()</code> tail hook · <code>_llm_handle_intent()</code> per-intent logic · <code>_llm_advance_chore_setup()</code> prefill or complete · <code>_llm_fill_chore_setup()</code> mid-interview help · <code>_execute_llm_plan()</code> runs a confirmed plan · <code>_llm_suggestions_reply()</code>.</td></tr>
+        <tr><td><code>commands.py</code> · <code>handle_command()</code></td><td>New flag <code>_allow_llm</code> (internal calls never call the LLM again) and three hooks: yes/no check at the top, interview rejection, tail fallback. 22 new text keys in both <code>en</code> and <code>de</code>.</td></tr>
+        <tr><td><code>storage.py</code></td><td>Tables <code>pending_llm_actions</code> and <code>llm_log</code>; <code>start/get/clear_pending_llm_action</code>, <code>log_llm</code>; both registered in the scope-migration spec.</td></tr>
+        <tr><td><code>test_llm_assist.py</code></td><td>38 tests with a fake LLM, no Mac mini needed.</td></tr>
+        <tr><td><code>evals/intent_cases.jsonl</code></td><td>74 cases in German and English: every intent, 16 chatter, 2 unclear, 6 mid-interview.</td></tr>
+        <tr><td><code>evals/run_intent_eval.py</code></td><td>Runs the cases against one or more models, compares slots after the bot's parsers, reports accuracy and latency.</td></tr>
+        <tr><td><code>evals/export_llm_log.py</code></td><td>Reads the live log, lists scope ids, writes eval-case skeletons. Deployed with the bot.</td></tr>
+        <tr><td><code>deploy_stack.py</code>, <code>.env.example</code></td><td>Upload the new files (including the <code>evals/</code> subfolder); <code>LLM_*</code> settings.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="config">
+  <h2><span class="num">12</span>Configuration</h2>
+  <p class="prose">The settings go in the VM's <code>.env</code>. The chore-bot container reads it through <code>env_file: .env</code>, so <code>docker-compose.yml</code> doesn't change.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>LLM_ENABLED</code></td><td><code>false</code></td><td>Master switch. Off means exactly the old behaviour.</td></tr>
+        <tr><td><code>LLM_BASE_URL</code></td><td>none</td><td><code>http://&lt;macmini-ip&gt;:11434/v1</code>. Use the IP, not a <code>.local</code> name.</td></tr>
+        <tr><td><code>LLM_MODEL</code></td><td>none</td><td>Ollama model tag, e.g. <code>qwen2.5:14b</code>.</td></tr>
+        <tr><td><code>LLM_TIMEOUT_SECONDS</code></td><td><code>8</code></td><td>After this, fall back to today's reply.</td></tr>
+        <tr><td><code>LLM_SCOPES</code></td><td>empty = all</td><td>Comma-separated scope ids allowed to use the LLM, e.g. <code>group:abc…</code>.</td></tr>
+        <tr><td><code>LLM_GROUP_MIN_CONFIDENCE</code></td><td><code>0.6</code></td><td>In groups, answers below this are ignored.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="plan">
+  <h2><span class="num">13</span>Step-by-step plan</h2>
+  <p class="prose">Steps 1–4 are done. Steps 5–12 are for tomorrow and after, in order. Each step says why it comes where it does.</p>
+  <ol class="steps">
+    <li class="step done">
+      <h3>Plan and decisions <span class="pill ok">done 2026-11-07</span></h3>
+      <p>Scope (chore bot only), yes/no from day one, every unmatched message to the LLM, same LAN, logging during the trial run, no MCP.</p>
+      <p class="why">Deciding the safety rules first meant the code could be written around them instead of patched later.</p>
+    </li>
+    <li class="step done">
+      <h3>Skeleton: client, config, tail fallback, show + suggestions <span class="pill ok">done</span></h3>
+      <p><code>llm_assist.py</code>, the <code>LLM_*</code> settings, and <code>_llm_fallback()</code> at the end of <code>handle_command()</code>.</p>
+      <p class="why">Built so that with <code>LLM_ENABLED=false</code> all existing test suites pass unchanged. That was checked before anything else was added.</p>
+    </li>
+    <li class="step done">
+      <h3>Yes/no check, done/undo, interview prefill, remaining intents <span class="pill ok">done</span></h3>
+      <p><code>pending_llm_actions</code>, <code>mark_done</code>/<code>undo_done</code>, <code>add_chore</code>/<code>add_once</code> prefill, edit, rename, name, vacation, delete handover, and LLM help inside the chore interview.</p>
+      <p class="why">The yes/no came before the main feature because every data-changing intent depends on it.</p>
+    </li>
+    <li class="step done">
+      <h3>Tests, eval tooling, mock end-to-end <span class="pill ok">done</span></h3>
+      <p>38 fake-LLM tests, the eval set and runner, and the log export. Checked against a mock OpenAI-style server: real HTTP, yes/no round trip, logging, and the timeout fallback (unreachable IP → today's reply after 1 s).</p>
+    </li>
+
+    <li class="step">
+      <h3>Set up Ollama on the Mac mini <span class="pill info">tomorrow</span></h3>
+      <pre><code>brew install ollama                      <span class="c"># or the app from ollama.com</span>
+launchctl setenv OLLAMA_HOST 0.0.0.0     <span class="c"># listen on the LAN, not only localhost</span>
+launchctl setenv OLLAMA_KEEP_ALIVE -1    <span class="c"># keep the model in memory: no 10 s cold start</span>
+<span class="c"># restart Ollama, then pull candidates:</span>
+ollama pull qwen2.5:7b
+ollama pull qwen2.5:14b
+ollama pull gemma3:12b</code></pre>
+      <ul>
+        <li>In the router, add a DHCP reservation so the Mac mini keeps its IP.</li>
+        <li>In the macOS firewall, allow port 11434 only from <code>192.168.178.83</code>. Ollama has no login, so anyone who can reach it can use it.</li>
+        <li>Turn off sleep for the Mac mini in System Settings → Energy.</li>
+      </ul>
+      <p class="why">Candidates are 7–14B instruct models with good German. 32 GB fits a 14B model at 4-bit with room to spare. Avoid "thinking" models, or turn thinking off: their reasoning text slows every answer.</p>
+    </li>
+    <li class="step">
+      <h3>Check the bot VM can reach it <span class="pill info">tomorrow</span></h3>
+      <pre><code>ssh signalbot@192.168.178.83
+curl http://&lt;macmini-ip&gt;:11434/v1/models
+docker exec chore-bot python -c "import requests; print(requests.get('http://&lt;macmini-ip&gt;:11434/v1/models', timeout=3).status_code)"</code></pre>
+      <p class="why">The second command checks from inside the container, which is what the bot actually uses. Docker networking can differ from the host.</p>
+    </li>
+    <li class="step">
+      <h3>Run the eval and choose a model <span class="pill info">tomorrow</span></h3>
+      <pre><code>cd HouseChoreTracker
+pip install requests                     <span class="c"># on the laptop, if missing</span>
+python evals/run_intent_eval.py --base-url http://&lt;macmini-ip&gt;:11434/v1 \
+    --model qwen2.5:7b --model qwen2.5:14b --model gemma3:12b</code></pre>
+      <p>Targets: <strong>≥ 90 %</strong> intent, <strong>≥ 85 %</strong> fully correct slots, <strong>≈ 0 %</strong> chatter answered, p95 under 3 s. Pick the smallest model that reaches them. Use <code>--only "text"</code> to rerun one case and <code>--verbose</code> to see every answer.</p>
+      <p class="why">Measuring first means the trial run starts with a model that is known to work, and the numbers give a baseline when you tune the prompt.</p>
+    </li>
+    <li class="step">
+      <h3>Tune the prompt if needed</h3>
+      <p>Misses are printed by type: <code>INTENT</code>, <code>SLOTS</code>, <code>CHATTER</code>, <code>FAILED</code>. Fix them in <code>SYSTEM_PROMPT</code> in <code>llm_assist.py</code>, usually by adding an example close to the miss, then rerun the eval.</p>
+      <p class="why">Change one thing at a time and rerun. Prompt changes interact, and the eval is fast enough to check each one.</p>
+    </li>
+    <li class="step">
+      <h3>Deploy with the LLM still off</h3>
+      <pre><code>python deploy_stack.py                   <span class="c"># uploads llm_assist.py and evals/export_llm_log.py too</span>
+<span class="c"># on the VM:</span>
+docker compose up -d --build chore-bot
+docker exec chore-bot python evals/export_llm_log.py --scopes</code></pre>
+      <p class="why">Deploying with it off first proves the new code changes nothing (new tables are created, the old behaviour stays). The last command lists scope ids so you can find the test group's id for the allowlist.</p>
+    </li>
+    <li class="step">
+      <h3>Turn it on for the test group</h3>
+      <pre><code><span class="c"># VM .env</span>
+LLM_ENABLED=true
+LLM_BASE_URL=http://&lt;macmini-ip&gt;:11434/v1
+LLM_MODEL=&lt;chosen model&gt;
+LLM_SCOPES=group:&lt;test group id&gt;
+
+docker compose up -d chore-bot</code></pre>
+      <p>Try in the group: "bad ist sauber", "neue aufgabe fenster jeden montag", "was steht an?", "wer kommt heute zum essen?" (must stay silent), and <code>aufgabe</code> → a name → "jeden Montag früh".</p>
+    </li>
+    <li class="step">
+      <h3>Trial run for a week: read the log</h3>
+      <pre><code>docker exec chore-bot python evals/export_llm_log.py
+docker exec chore-bot python evals/export_llm_log.py --outcome low_confidence
+docker exec chore-bot python evals/export_llm_log.py --jsonl &gt; misses.jsonl</code></pre>
+      <p>Fill in the <code>expect</code> part of each miss, append it to <code>intent_cases.jsonl</code>, and rerun the eval after each prompt change.</p>
+      <p class="why">Real messages show phrasings the hand-written cases miss. Adding them to the eval stops fixed misses from coming back.</p>
+    </li>
+    <li class="step">
+      <h3>Decide on a wider rollout</h3>
+      <p>Empty <code>LLM_SCOPES</code> turns it on for all chore groups. Then consider dropping the yes/no for high-confidence <code>mark_done</code>, and reusing the pattern for the expense bot ("ich hab 23 € für Einkauf bezahlt").</p>
+      <p>Before announcing it, add a <code>CHANGELOG.md</code> entry and broadcast it, as for every release.</p>
+    </li>
+  </ol>
+</section>
+
+<section id="testing">
+  <h2><span class="num">14</span>Testing and eval</h2>
+  <div class="grid2">
+    <div class="card">
+      <h4>Unit tests (fake LLM)</h4>
+      <ul>
+        <li>exact commands never call the LLM</li>
+        <li>add_chore: complete → yes/no; "ja" creates exactly those values; "nein" creates nothing</li>
+        <li>partial → interview at the right step; invalid slot asked again</li>
+        <li>mid-interview answer fills two steps</li>
+        <li>add_once, done, undo, edit, rename, name, vacation</li>
+        <li>delete never deletes without the existing question</li>
+        <li>yes/no: only the sender, cleared by other messages, expires</li>
+        <li>chatter, low confidence, unclear, timeouts, broken JSON</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Run them</h4>
+<pre><code>cd HouseChoreTracker
+for f in test_*.py; do
+  python3 $f
+done</code></pre>
+      <p>Everything passes as of 2026-11-10, and the eight existing suites are unchanged with the LLM off.</p>
+    </div>
+  </div>
+</section>
+
+<section id="troubleshooting">
+  <h2><span class="num">15</span>Troubleshooting</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Check / fix</th></tr></thead>
+      <tbody>
+        <tr><td>Bot behaves exactly as before</td><td>LLM off for this chat</td><td><code>LLM_ENABLED</code>, <code>LLM_BASE_URL</code>, <code>LLM_MODEL</code> all set? Scope id in <code>LLM_SCOPES</code>? Restarted the container?</td></tr>
+        <tr><td>Log shows <code>failed</code> for every message</td><td>Mac mini unreachable or the model name is wrong</td><td><code>docker logs chore-bot | grep "LLM call failed"</code>, and the curl from step 6</td></tr>
+        <tr><td>"LLM rejected json_schema" in the logs</td><td>Backend doesn't support strict schemas</td><td>Fine: it retries in JSON mode. Upgrade Ollama if accuracy drops.</td></tr>
+        <tr><td>First message after a while is slow</td><td>Model unloaded</td><td><code>OLLAMA_KEEP_ALIVE=-1</code>, then restart Ollama</td></tr>
+        <tr><td>Bot answers chatter</td><td>Model too eager</td><td>Raise <code>LLM_GROUP_MIN_CONFIDENCE</code> to 0.75, add the message as a chatter example</td></tr>
+        <tr><td>Many <code>low_confidence</code></td><td>Threshold too high for this model</td><td>Look at <code>--outcome low_confidence</code>; lower the threshold only if those are real requests</td></tr>
+        <tr><td>Something goes wrong in the group</td><td>n/a</td><td>Kill switch: <code>LLM_ENABLED=false</code>, then <code>docker compose up -d chore-bot</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="limits" class="prose">
+  <h2><span class="num">16</span>Known limits</h2>
+  <ul>
+    <li>Mid-interview LLM help covers the chore-creation interview only. The edit and vacation dialogues are prefilled but not helped mid-way.</li>
+    <li>The interview's name step never goes to the LLM, because any text is a valid name.</li>
+    <li>If the message says "must be confirmed" but an earlier step is missing, the interview still asks the confirmation question at the end, because <code>pending_chore_setups</code> has no column for it.</li>
+    <li>"Done by someone else" (<code>erledigt X für Anna</code>) isn't an LLM slot yet. Typing the command still works.</li>
+    <li>The vacation dialogue stores the start delay in whole days, so "in 3 hours" rounds down.</li>
+    <li>Each unmatched message costs one LLM call of about 1–3 s. With a few busy groups that's fine. With many groups, consider an "@bot" filter.</li>
+  </ul>
+</section>
+
+</main>
+</div>
+</body>
+</html>

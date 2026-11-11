@@ -33,6 +33,7 @@ MIGRATION = scope_migration.MigrationSpec(
         "chore_logs",
         "chores",
         "command_usage",
+        "llm_log",
         "member_names",
         "member_vacations",
         "vacation_chores",
@@ -41,6 +42,7 @@ MIGRATION = scope_migration.MigrationSpec(
         "pending_chore_adds",
         "pending_chore_edits",
         "pending_chore_setups",
+        "pending_llm_actions",
         "pending_member_names",
         "pending_vacation_chore_adds",
         "pending_vacation_setups",
@@ -51,6 +53,7 @@ MIGRATION = scope_migration.MigrationSpec(
         ("chat_admins", "sender", _IN_SCOPE),
         ("chore_logs", "sender", _IN_SCOPE),
         ("command_usage", "sender", _IN_SCOPE),
+        ("llm_log", "sender", _IN_SCOPE),
         ("member_names", "sender", _IN_SCOPE),
         ("member_vacations", "sender", _IN_SCOPE),
         ("vacation_prep_done", "sender", "vacation_id IN (SELECT id FROM member_vacations WHERE scope_id = ?)"),
@@ -362,6 +365,34 @@ class Storage:
                     last_activity_at TEXT NOT NULL DEFAULT (datetime('now')),
                     previous_step TEXT NOT NULL DEFAULT '',
                     PRIMARY KEY(scope_id, requested_by)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS pending_llm_actions (
+                    scope_id TEXT NOT NULL,
+                    requested_by TEXT NOT NULL,
+                    intent TEXT NOT NULL,
+                    plan_json TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    PRIMARY KEY(scope_id, requested_by)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS llm_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    scope_id TEXT NOT NULL,
+                    sender TEXT NOT NULL,
+                    text TEXT NOT NULL,
+                    context TEXT NOT NULL DEFAULT '',
+                    raw_output TEXT NOT NULL DEFAULT '',
+                    outcome TEXT NOT NULL,
+                    latency_ms INTEGER
                 )
                 """
             )
@@ -1587,6 +1618,61 @@ class Storage:
             conn.execute(
                 "DELETE FROM pending_member_names WHERE scope_id = ? AND requested_by = ?",
                 (scope_id, requested_by),
+            )
+            conn.commit()
+
+    def start_pending_llm_action(
+        self, scope_id: str, requested_by: str, intent: str, plan_json: str, ttl_minutes: int = 5
+    ) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO pending_llm_actions (scope_id, requested_by, intent, plan_json, expires_at)
+                VALUES (?, ?, ?, ?, datetime('now', '+' || ? || ' minutes'))
+                ON CONFLICT(scope_id, requested_by) DO UPDATE SET
+                    intent = excluded.intent,
+                    plan_json = excluded.plan_json,
+                    expires_at = excluded.expires_at,
+                    created_at = datetime('now')
+                """,
+                (scope_id, requested_by, intent, plan_json, ttl_minutes),
+            )
+            conn.commit()
+
+    def get_pending_llm_action(self, scope_id: str, requested_by: str) -> Optional[sqlite3.Row]:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM pending_llm_actions WHERE datetime(expires_at) < datetime('now')")
+            conn.commit()
+            return conn.execute(
+                "SELECT intent, plan_json FROM pending_llm_actions WHERE scope_id = ? AND requested_by = ?",
+                (scope_id, requested_by),
+            ).fetchone()
+
+    def clear_pending_llm_action(self, scope_id: str, requested_by: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM pending_llm_actions WHERE scope_id = ? AND requested_by = ?",
+                (scope_id, requested_by),
+            )
+            conn.commit()
+
+    def log_llm(
+        self,
+        scope_id: str,
+        sender: str,
+        text: str,
+        raw_output: str,
+        outcome: str,
+        latency_ms: int | None,
+        context: str = "",
+    ) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO llm_log (scope_id, sender, text, context, raw_output, outcome, latency_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (scope_id, sender, text, context, raw_output, outcome, latency_ms),
             )
             conn.commit()
 

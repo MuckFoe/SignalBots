@@ -19,6 +19,8 @@ PROJECTS = {
         "display_names.py",
         "docker-compose.yml",
         "Dockerfile",
+        "evals/export_llm_log.py",
+        "llm_assist.py",
         "requirements.txt",
         "scope_migration.py",
         "signal_client.py",
@@ -111,6 +113,8 @@ def upload_tree(sftp: paramiko.SFTPClient, ssh: paramiko.SSHClient) -> None:
         for name in files:
             local = os.path.join(LOCAL_ROOT, project, name)
             remote = f"{remote_project}/{name}"
+            if "/" in name:
+                ensure_remote_dir(sftp, ssh, f"{remote_project}/{os.path.dirname(name)}")
             sftp.put(local, remote)
             print(f"uploaded {project}/{name}")
 
