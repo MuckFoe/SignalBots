@@ -3066,6 +3066,8 @@ def _append_reply(reply: str | list[str] | dict, suffix: str) -> str | list[str]
 def _llm_schedule(raw: str | None, one_shot: bool) -> dict | None:
     if not raw:
         return None
+    if one_shot and raw.strip().lower().startswith("in "):
+        raw = raw.strip()[3:]  # "in 2 days" -> "2 days"
     schedule = parse_schedule(raw)
     if one_shot:
         return _as_once_schedule(schedule, raw)

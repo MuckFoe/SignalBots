@@ -206,8 +206,9 @@ the fallback is to require `confidence ≥ x` for group replies.
 No new dependency (`requests` is already in `requirements.txt`).
 
 - `LlmClient` — POST to an OpenAI-compatible `/v1/chat/completions`
-  (Ollama / LM Studio / llama.cpp / MLX all speak it) with a JSON-schema
-  constraint so output is always parseable. Timeout → `None`.
+  (Ollama / LM Studio / llama.cpp / MLX all speak it) with a strict
+  `json_schema` (`RESPONSE_SCHEMA`; slots optional), thinking off via
+  `reasoning_effort: "none"`. Timeout or error → `None`.
 - `INTENTS` — the catalogue above: per intent the slot names, a short
   description, accepted formats, and few-shot examples in en + de.
 - `build_messages(text, language, chore_names, is_group, dialogue=None)` —
@@ -385,8 +386,21 @@ Differences from the plan, decided while building:
 - Group gating: `LLM_GROUP_MIN_CONFIDENCE` (default 0.6). Below it, and for
   every `chatter`, a group gets exactly today's reply. `unclear` above it gets
   the suggestions reply.
-- If the backend rejects the strict JSON schema (HTTP 400), the client retries
-  once in plain `json_object` mode.
+- Structured output on the Mac mini needs the **official** Ollama build: its
+  MLX engine does constrained decoding with xgrammar, which Homebrew's build
+  does not ship (every `json_schema`/`json_object`/`format` request → 501
+  "structured output is unavailable"). GGUF models (llama.cpp engine) work
+  with any build.
+- The schema leaves slots optional: the model writes only the slots it has a
+  value for (~0.6 s per answer; with all 13 slots required ~1.5 s), and
+  `parse_output` fills the rest with `None`.
+- Thinking is off. With qwen3.6:35b it added ~20 s per message (1.6k reasoning
+  tokens). With it off, the eval scores 99–100 % intent and slots at p50 0.6 s.
+- The model is shared with the rental bot, which calls it with thinking on
+  (~35 s per page). The MLX engine serves one request at a time, even with
+  `OLLAMA_NUM_PARALLEL=2` (tested 2026-11-11), so a chore message arriving
+  during a rental extraction can exceed the 8 s timeout. The bot then answers
+  as it would without the LLM.
 
 ## Bring-up runbook
 
@@ -396,17 +410,17 @@ Differences from the plan, decided while building:
    launchctl setenv OLLAMA_HOST 0.0.0.0
    launchctl setenv OLLAMA_KEEP_ALIVE -1
    # restart Ollama, then:
-   ollama pull qwen2.5:14b        # candidates: qwen2.5:7b, qwen2.5:14b, gemma3:12b, mistral-small
+   ollama pull qwen3.6:35b        # in use since 2026-11-11 (shared with the rental bot)
    ```
-   Avoid "thinking" models (or turn thinking off): they are slow and the
-   reasoning text can break the 8 s budget.
+   The client turns thinking off (`reasoning_effort: "none"`); with it on,
+   qwen3.6 needs ~20 s per message.
    DHCP reservation for a fixed IP; firewall: 11434 only from the bot VM.
 2. **From the bot VM**: `curl http://<macmini-ip>:11434/v1/models`
 3. **Eval** (from the laptop or the Mac mini, needs `requests`):
    ```bash
    cd HouseChoreTracker
    python evals/run_intent_eval.py --base-url http://<macmini-ip>:11434/v1 \
-       --model qwen2.5:7b --model qwen2.5:14b --model gemma3:12b
+       --model qwen3.6:35b
    ```
    Pick the model that hits ≥ 90 % intent / ≥ 85 % slots / ≈ 0 % chatter
    answered at p95 < 3 s. `--only <text>` reruns single cases; `--verbose` shows every answer.

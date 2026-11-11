@@ -30,6 +30,8 @@ def _norm_slot(name: str, value: object, intent: str | None) -> object:
         return value
     text = str(value)
     if name == "schedule":
+        if intent == "add_once" and text.strip().lower().startswith("in "):
+            text = text.strip()[3:]  # the bot accepts "in 2 days" for one-time tasks too
         parsed = parse_schedule(text)
         if intent == "add_once" and parsed is not None and parsed.get("type") == "interval":
             return ("once-in", parsed["value"], parsed["unit"])

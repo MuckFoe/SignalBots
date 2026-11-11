@@ -187,6 +187,53 @@ class AddOnceTests(LlmAssistTestCase):
         self.assertIn("zählt nicht in der Statistik", reply)
         self.assertIn("Einmalaufgabe angelegt", self.send("ja"))
 
+    def test_in_n_days_is_understood_as_the_due_date(self) -> None:
+        self.llm.answers["übermorgen heizung ablesen"] = llm_output(
+            intent="add_once",
+            name="Heizung ablesen",
+            schedule="in 2 days",
+            remind_time="08:00",
+            count_stats=True,
+            done_confirmation=False,
+        )
+        self.assertIn("Habe ich das richtig verstanden?", self.send("übermorgen heizung ablesen"))
+        self.assertIn("Einmalaufgabe angelegt", self.send("ja"))
+        self.assertTrue(self.chore("Heizung ablesen")["reminder_schedule"].startswith("once"))
+
+
+class OutputAndClientTests(unittest.TestCase):
+    def test_left_out_slots_are_none(self) -> None:
+        result = llm_assist.parse_output(
+            '{"kind":"action","intent":"mark_done","slots":{"chore":"Bad putzen"},"suggestions":[],"confidence":0.9}'
+        )
+        self.assertEqual(result.slots["chore"], "Bad putzen")
+        self.assertIsNone(result.slots["schedule"])
+        self.assertIsNone(result.slots["done_confirmation"])
+        self.assertEqual(set(result.slots), set(llm_assist.SLOT_NAMES))
+
+    def test_client_sends_strict_schema_with_thinking_off(self) -> None:
+        import requests
+        from unittest import mock
+
+        response = mock.Mock(status_code=200)
+        response.json.return_value = {"choices": [{"message": {"content": "{}"}}]}
+        with mock.patch.object(requests, "post", return_value=response) as post:
+            content = llm_assist.LlmClient("http://mini:11434/v1/", "qwen3.6:35b", 8).complete([])
+        self.assertEqual(content, "{}")
+        url, payload = post.call_args.args[0], post.call_args.kwargs["json"]
+        self.assertEqual(url, "http://mini:11434/v1/chat/completions")
+        self.assertEqual(payload["response_format"]["type"], "json_schema")
+        self.assertTrue(payload["response_format"]["json_schema"]["strict"])
+        self.assertIs(payload["response_format"]["json_schema"]["schema"], llm_assist.RESPONSE_SCHEMA)
+        self.assertEqual(payload["reasoning_effort"], "none")
+
+    def test_schema_matches_what_parse_output_accepts(self) -> None:
+        schema = llm_assist.RESPONSE_SCHEMA
+        self.assertEqual(schema["properties"]["kind"]["enum"], list(llm_assist.KINDS))
+        self.assertEqual(set(schema["properties"]["intent"]["enum"]), {*llm_assist.INTENTS, None})
+        self.assertEqual(set(schema["properties"]["slots"]["properties"]), set(llm_assist.SLOT_NAMES))
+        self.assertFalse(schema["properties"]["slots"]["additionalProperties"])
+
 
 class DialogueFillTests(LlmAssistTestCase):
     def test_free_text_answer_fills_two_steps(self) -> None:

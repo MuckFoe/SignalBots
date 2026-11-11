@@ -1,5 +1,58 @@
 # Changelog
 
+## 2026-11-11 – Chore bot understands free text
+
+### For the groups
+
+Only the chore bot changed; the rental and expense bots get no message.
+
+```chores-de
+📢 Neuigkeiten vom Haushalts-Bot
+
+💬 Ihr müsst die Befehle nicht mehr genau kennen. Der Bot versteht jetzt auch normale Sätze, zum Beispiel:
+• „bad ist sauber“
+• „erinner mich morgen abend den vermieter anzurufen“
+• „neue aufgabe staubsaugen alle 2 wochen“
+• „was steht noch an?“
+
+✅ Bevor er etwas einträgt oder ändert, fragt er nach („Habe ich das richtig verstanden?“), und ihr antwortet mit ja oder nein. Die gewohnten Befehle funktionieren weiter wie bisher.
+
+🤫 Bei normalen Unterhaltungen in der Gruppe bleibt der Bot still.
+
+🏠 Das Verstehen übernimmt unser eigenes KI-Modell, lokal bei uns zu Hause. Eure Nachrichten gehen an keinen externen KI-Dienst.
+```
+
+```chores-en
+📢 News from the chore bot
+
+💬 You no longer need to know the exact commands. The bot now understands normal sentences too, for example:
+• "bathroom is clean"
+• "remind me tomorrow evening to call the landlord"
+• "new chore vacuum every 2 weeks"
+• "what's left to do?"
+
+✅ Before it adds or changes anything, it asks back ("Did I get that right?") and you answer yes or no. The usual commands keep working as before.
+
+🤫 The bot stays quiet during normal conversation in the group.
+
+🏠 The understanding is done by our own AI model, running locally at home. Your messages are not sent to any external AI service.
+```
+
+### Under the hood
+
+- Chore bot LLM command assist switched on (`LLM_ENABLED=true`, all chats):
+  free text that no parser understands goes to `qwen3.6:35b` on the Mac mini
+  with a strict `json_schema` (slots optional) and thinking off; every slot is
+  validated by the bot's own parsers, actions need a yes. Eval: intent 100 %,
+  slots 96–98 %, 0 % chatter answered, p50 0.6 s.
+- Prompt fixes: open tasks ("ohne termin") are `add_chore` + `none`; task names
+  in short base form; "früh/morgens/nachmittags" times; "in 2 days" accepted
+  for one-time tasks.
+- Mac mini: Ollama switched from Homebrew to the official build (Homebrew's
+  lacks xgrammar, so structured output on MLX answered 501), with a daily
+  self-checking updater (`macmini/`). The rental bot now gets structured
+  output too.
+
 ## 2026-11-11 – Rental bot reads more pages
 
 ### For the groups
