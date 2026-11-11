@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-11-11 – Rental bot reads more pages
+
+### For the groups
+
+When the rental scrapers can't find the price or availability on a page,
+the bot now lets a local AI model (on the Mac mini at home) read the page
+text. It only keeps values that literally appear on the page. Only the
+rental groups are told; the other bots did not change.
+
+Not in this release: the headless-browser step (`RENTAL_BROWSER_ENABLED`)
+is built in but stays off until it has been tested on real sites.
+
+```rentals-de
+📢 Neuigkeiten vom Ferienunterkunft-Bot
+
+🔍 Der Bot erkennt Preise und Verfügbarkeit jetzt auch auf Seiten, die er bisher nicht lesen konnte. Findet er dort nichts auf dem üblichen Weg, liest ein KI-Modell den Seitentext. Übernommen wird nur, was wirklich auf der Seite steht.
+
+🏠 Das Modell läuft lokal bei uns, die Seiten gehen an keinen externen KI-Dienst.
+
+Fehlt bei einer Unterkunft trotzdem noch der Preis, gebt gern Bescheid.
+```
+
+```rentals-en
+📢 News from the rental watcher
+
+🔍 The bot now finds prices and availability on pages it couldn't read before. When the usual way finds nothing, an AI model reads the page text. Only values that actually appear on the page are used.
+
+🏠 The model runs locally on our own hardware; pages are not sent to any external AI service.
+
+If a rental still shows no price, let us know.
+```
+
 ## 2026-10-21 – WhatsApp
 
 ### For the groups

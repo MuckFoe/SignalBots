@@ -12,8 +12,10 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Only the headless shell + its system libs (~250-300 MB). Build with
 # --build-arg INSTALL_BROWSER=0 to skip it; the browser step then just reports failure.
 ARG INSTALL_BROWSER=1
+# libatomic1: Playwright's bundled node needs it and the slim image lacks it.
 RUN if [ "$INSTALL_BROWSER" = "1" ]; then \
-        python -m playwright install --with-deps --only-shell chromium \
+        apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+        && python -m playwright install --with-deps --only-shell chromium \
         && rm -rf /var/lib/apt/lists/*; \
     fi
 
