@@ -2,6 +2,8 @@
 
     python broadcast_changelog.py          # dry run: list targets and texts
     python broadcast_changelog.py --send   # actually send
+    python broadcast_changelog.py --only chores [--send]   # one bot's groups only
+                                           # (e.g. adding a block to an already-sent release)
 
 Each group gets the block for its bot and language (```chores-de``` etc.,
 first occurrence in CHANGELOG.md = latest release). Signal groups are only
@@ -75,6 +77,9 @@ def send(ssh: paramiko.SSHClient, group_id: str, message: str) -> str:
 
 def main() -> None:
     really_send = "--send" in sys.argv
+    only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None
+    if only is not None and only not in CONTAINERS:
+        sys.exit(f"--only must be one of {', '.join(CONTAINERS)}")
     messages = latest_messages()
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -83,6 +88,8 @@ def main() -> None:
 
     targets = []
     for job, container in CONTAINERS.items():
+        if only and job != only:
+            continue
         for line in remote_python(ssh, container, GROUP_QUERY).splitlines():
             scope_id, language = line.split("\t")
             group_id = scope_id.removeprefix("group:")

@@ -6,8 +6,9 @@
 
 When the rental scrapers can't find the price or availability on a page,
 the bot now lets a local AI model (on the Mac mini at home) read the page
-text. It only keeps values that literally appear on the page. Only the
-rental groups are told; the other bots did not change.
+text. It only keeps values that literally appear on the page. The chore
+groups got a short general note on request (the chore bot itself did not
+change; sent separately with `--only chores`). Expense groups were not told.
 
 Not in this release: the headless-browser step (`RENTAL_BROWSER_ENABLED`)
 is built in but stays off until it has been tested on real sites.
@@ -30,6 +31,22 @@ Fehlt bei einer Unterkunft trotzdem noch der Preis, gebt gern Bescheid.
 🏠 The model runs locally on our own hardware; pages are not sent to any external AI service.
 
 If a rental still shows no price, let us know.
+```
+
+```chores-de
+📢 Kurze Info zu den Bots
+
+🏠 Hinter den Bots läuft jetzt ein eigenes KI-Modell, lokal bei uns zu Hause. Als Erstes nutzt es der Ferienunterkunft-Bot, um Preise auf Webseiten zu lesen. Daten gehen dabei an keinen externen KI-Dienst.
+
+🧹 Für den Haushalts-Bot ändert sich nichts, alles funktioniert wie gewohnt.
+```
+
+```chores-en
+📢 A quick note about the bots
+
+🏠 The bots now have their own AI model, running locally at home. The rental watcher is the first to use it, to read prices on web pages. No data is sent to any external AI service.
+
+🧹 Nothing changes for the chore bot, everything works as before.
 ```
 
 ## 2026-10-21 – WhatsApp
