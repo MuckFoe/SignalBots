@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/check-ruleset.mjs"
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-ruleset.mjs\""
           }
         ]
       }

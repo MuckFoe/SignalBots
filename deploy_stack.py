@@ -35,6 +35,8 @@ PROJECTS = {
         "scrape_types.py",
         "scrapers.py",
         "poller.py",
+        "llm_extract.py",
+        "browser_fetch.py",
         "drive_time.py",
         "utils.py",
         "bot_registry.py",

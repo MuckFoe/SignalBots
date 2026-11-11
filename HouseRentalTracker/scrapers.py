@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import date
 from typing import Protocol
@@ -8,9 +9,13 @@ from urllib.parse import urlparse
 
 import requests
 
+import browser_fetch
+import llm_extract
 from scrape_types import ScrapeResult
 from utils import hostname, nights_between
 
+
+logger = logging.getLogger(__name__)
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -416,4 +421,49 @@ class ScraperRegistry:
             adapter = self.detect(url)
         if adapter is None:
             return ScrapeResult(error="No scraper available for this URL.")
-        return adapter.scrape(url, check_in, check_out, guests)
+        result = adapter.scrape(url, check_in, check_out, guests)
+        return self._llm_fill(result, url, check_in, check_out, guests)
+
+    def _llm_fill(self, result: ScrapeResult, url: str, check_in: date, check_out: date, guests: int) -> ScrapeResult:
+        """Let the local LLM read the page when the scraper missed price or availability.
+
+        Step 1: plain HTTP page. Step 2 (only if still missing): headless browser with cookie
+        banner click and captured price JSON. If a step that was needed fails, the result is
+        flagged so the poller keeps the last known values.
+        """
+        if not llm_extract.needs_llm(result) or not llm_extract.enabled():
+            return result
+        failed = False
+
+        html = _request_text(url)
+        if html:
+            extraction = self._extract(html, url, check_in, check_out, guests)
+            if extraction is None:
+                result.fallback_failed = True  # LLM down: the browser step would be pointless
+                return result
+            llm_extract.merge(result, extraction)
+        else:
+            failed = True
+
+        if llm_extract.needs_llm(result) and browser_fetch.enabled():
+            rendered = browser_fetch.render(url)
+            if rendered is None:
+                failed = True
+            else:
+                failed = False
+                extraction = self._extract(rendered.html, url, check_in, check_out, guests, rendered.captured)
+                if extraction is None:
+                    failed = True
+                else:
+                    llm_extract.merge(result, extraction)
+
+        result.fallback_failed = failed and llm_extract.needs_llm(result)
+        return result
+
+    @staticmethod
+    def _extract(html, url, check_in, check_out, guests, captured=None):
+        try:
+            return llm_extract.extract(html, url, check_in, check_out, guests, captured=captured)
+        except Exception:  # never let the fallback break a poll
+            logger.exception("LLM extraction failed for %s", url)
+            return None
