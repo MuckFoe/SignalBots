@@ -4,11 +4,12 @@ import os
 import queue
 import threading
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
+import llm_assist
 from bot_registry import runtime_bot_id
 from commands import format_reminder, format_vacation_event, handle_command, is_not_understood_reply, text_for
 from signal_client import SignalClient
@@ -33,6 +34,8 @@ storage = Storage(DATABASE_PATH)
 signal = SignalClient(SIGNAL_API_URL, SIGNAL_BOT_NUMBER)
 whatsapp = WhatsAppClient(WHATSAPP_API_URL, WHATSAPP_API_KEY)
 outbound_messages: queue.Queue[Dict[str, str]] = queue.Queue()
+# Messages that need the LLM while it is cold: answered from here once the model has loaded.
+deferred_messages: queue.Queue[Dict[str, Optional[str]]] = queue.Queue()
 
 
 def _queue_signal_reply(group_id: Optional[str], recipient: str, message: str) -> None:
@@ -44,6 +47,36 @@ def _queue_signal_reply(group_id: Optional[str], recipient: str, message: str) -
             "message": message,
         }
     )
+
+
+def _queue_reply(group_id: Optional[str], recipient: str, reply: Union[str, list, dict]) -> None:
+    """Sends a handle_command reply ourselves (the router is no longer waiting). Text only."""
+    if isinstance(reply, dict):
+        reply = reply.get("reply", "")
+    for message in [reply] if isinstance(reply, str) else reply:
+        if message:
+            _queue_signal_reply(group_id, recipient, message)
+
+
+def _run_deferred_loop() -> None:
+    while True:
+        job = deferred_messages.get()
+        try:
+            with llm_assist.cold_start_allowed():
+                reply = handle_command(
+                    storage,
+                    job["message"],
+                    sender=job["sender"],
+                    scope_id=job["scope_id"],
+                    group_id=job["group_id"],
+                )
+        except Exception as exc:
+            app.logger.exception("Failed handling deferred chore command: %s", exc)
+            reply = text_for(storage, job["scope_id"], "unexpected_error")
+        _queue_reply(job["group_id"], job["sender"], reply)
+        if deferred_messages.empty():
+            llm_assist.warming.clear()
+        deferred_messages.task_done()
 
 
 def _run_signal_send_loop() -> None:
@@ -194,6 +227,12 @@ def internal_handle() -> tuple[dict, int]:
             scope_id=scope_id,
             group_id=group_id,
         )
+    except llm_assist.ModelCold:
+        first = not llm_assist.warming.is_set()
+        llm_assist.warming.set()
+        deferred_messages.put({"scope_id": scope_id, "sender": sender, "message": message, "group_id": group_id})
+        app.logger.info("LLM cold, deferred a message in %s.", scope_id)
+        reply = text_for(storage, scope_id, "llm_warming") if first else ""
     except Exception as exc:
         app.logger.exception("Failed handling chore command: %s", exc)
         reply = text_for(storage, scope_id, "unexpected_error")
@@ -213,4 +252,5 @@ if __name__ == "__main__":
     reminder_thread = threading.Thread(target=_run_reminder_loop, daemon=True)
     send_thread.start()
     reminder_thread.start()
+    threading.Thread(target=_run_deferred_loop, daemon=True).start()
     app.run(host=host, port=port)

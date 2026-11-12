@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-11-12 – Chore bot: cold-start notice
+
+### For the groups
+
+Only the chore bot changed; rental and expense groups get no message.
+
+```chores-de
+📢 Kurze Info vom Putz-Bot
+
+⏳ Wenn ihr dem Bot eine Weile nichts geschrieben habt, braucht die KI beim ersten freien Satz (z. B. „spülmaschine ist ausgeräumt“) etwa eine halbe Minute zum Starten. Der Bot sagt euch dann kurz Bescheid und schickt die Antwort hinterher, statt die Nachricht zu übergehen.
+
+⚡ Normale Befehle wie „liste“ oder „erledigt Bad“ sind davon nicht betroffen.
+```
+
+```chores-en
+📢 A quick note from the chore bot
+
+⏳ If nobody has written to the bot for a while, the AI needs about half a minute to start up for the first free-text message (e.g. "dishwasher is emptied"). The bot now tells you and sends the answer afterwards, instead of skipping the message.
+
+⚡ Normal commands like "list" or "done bathroom" aren't affected.
+```
+
+### Under the hood
+
+- Cause: Ollama unloads the model after 5 min idle (`OLLAMA_KEEP_ALIVE=5m` on
+  the Mac mini). A cold request takes ~24 s (10 s load + 14 s uncached
+  prompt), over `LLM_TIMEOUT_SECONDS=20`, so the first message on 2026-11-12
+  timed out and went unanswered.
+- `llm_assist.LlmClient` checks `/api/ps` before each call; if the model isn't
+  loaded (or other messages are already waiting for it) it raises `ModelCold`.
+  A failed check counts as loaded.
+- `app.py` answers `ModelCold` with the `llm_warming` notice (once per cold
+  start), queues the message, and a worker thread re-runs it with
+  `LLM_COLD_TIMEOUT_SECONDS` (default 120) and sends the reply itself (text
+  only, no chart attachments).
+- Free-text group chatter also triggers the LLM, so after an idle phase a
+  plain chat message can produce the notice with no answer following.
+
 ## 2026-11-11 – Rental checks at night
 
 ### For the groups

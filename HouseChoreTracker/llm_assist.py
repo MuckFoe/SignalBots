@@ -8,7 +8,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 
@@ -171,6 +173,27 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+class ModelCold(Exception):
+    """The model is not loaded. Loading plus the first prompt take ~25 s, longer than the router waits."""
+
+
+_local = threading.local()
+
+# Set while messages wait for the model to load, so later messages queue behind them
+# instead of racing the load with the short timeout.
+warming = threading.Event()
+
+
+@contextmanager
+def cold_start_allowed():
+    """Inside this block LLM calls wait for a cold model (LLM_COLD_TIMEOUT_SECONDS) instead of raising ModelCold."""
+    _local.allow_cold = True
+    try:
+        yield
+    finally:
+        _local.allow_cold = False
+
+
 class LlmClient:
     """POSTs to an OpenAI-compatible /chat/completions endpoint. Returns the message text or None.
 
@@ -185,7 +208,26 @@ class LlmClient:
         self.model = model
         self.timeout = timeout
 
+    def is_loaded(self) -> bool:
+        """Asks Ollama (/api/ps) whether the model is in memory. Any problem counts as loaded (normal path)."""
+        import requests
+
+        root = self.base_url.removesuffix("/v1")
+        try:
+            response = requests.get(f"{root}/api/ps", timeout=3)
+            response.raise_for_status()
+            models = response.json().get("models") or []
+        except Exception as exc:
+            logger.warning("LLM load check failed: %s", exc)
+            return True
+        return any(self.model in (item.get("name"), item.get("model")) for item in models)
+
     def complete(self, messages: list[dict]) -> str | None:
+        timeout = self.timeout
+        if getattr(_local, "allow_cold", False):
+            timeout = max(timeout, _env_float("LLM_COLD_TIMEOUT_SECONDS", 120.0))
+        elif warming.is_set() or not self.is_loaded():
+            raise ModelCold()
         payload = {
             "model": self.model,
             "messages": messages,
@@ -199,7 +241,7 @@ class LlmClient:
         import requests  # imported here so the bot (and its tests) load without it when the LLM is off
 
         try:
-            response = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=self.timeout)
+            response = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=timeout)
             response.raise_for_status()
             return response.json()["choices"][0]["message"]["content"]
         except Exception as exc:  # fail open: any problem means "no LLM answer"
@@ -330,6 +372,8 @@ def interpret(
     started = time.monotonic()
     try:
         raw = client.complete(build_messages(text, language, chore_names, is_group, dialogue))
+    except ModelCold:
+        raise
     except Exception as exc:
         logger.warning("LLM client raised: %s", exc)
         raw = None
