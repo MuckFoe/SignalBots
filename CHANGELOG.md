@@ -9,17 +9,17 @@ Only the chore bot changed; rental and expense groups get no message.
 ```chores-de
 📢 Kurze Info vom Putz-Bot
 
-⏳ Wenn ihr dem Bot eine Weile nichts geschrieben habt, braucht die KI beim ersten freien Satz (z. B. „spülmaschine ist ausgeräumt“) etwa eine halbe Minute zum Starten. Der Bot sagt euch dann kurz Bescheid und schickt die Antwort hinterher, statt die Nachricht zu übergehen.
+⏳ Kaltstart: Damit der Rechner nicht dauernd Strom und Speicher belegt, legt sich die KI nach ein paar Minuten ohne Nachrichten schlafen. Beim nächsten frei formulierten Satz (z. B. „spülmaschine ist ausgeräumt“) muss sie erst wieder geladen werden – das dauert etwa eine halbe Minute. Bisher ging die Nachricht dabei verloren; jetzt sagt der Bot kurz Bescheid und schickt die Antwort hinterher.
 
-⚡ Normale Befehle wie „liste“ oder „erledigt Bad“ sind davon nicht betroffen.
+⚡ Befehle, die der Bot direkt versteht (z. B. „liste“ oder „erledigt Bad“), brauchen die KI nicht und kommen wie immer sofort an.
 ```
 
 ```chores-en
 📢 A quick note from the chore bot
 
-⏳ If nobody has written to the bot for a while, the AI needs about half a minute to start up for the first free-text message (e.g. "dishwasher is emptied"). The bot now tells you and sends the answer afterwards, instead of skipping the message.
+⏳ Cold start: so the computer doesn't use power and memory all the time, the AI goes to sleep after a few minutes without messages. For the next free-text message (e.g. "dishwasher is emptied") it first has to load again, which takes about half a minute. Until now that message got lost; now the bot tells you and sends the answer afterwards.
 
-⚡ Normal commands like "list" or "done bathroom" aren't affected.
+⚡ Commands the bot understands directly (e.g. "list" or "done bathroom") don't need the AI and are answered right away as always.
 ```
 
 ### Under the hood
