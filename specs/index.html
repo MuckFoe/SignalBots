@@ -1,0 +1,1194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Specs</title>
+<link rel="icon" href="data:,">
+<!--
+  Viewer and editor for this folder. It holds no spec content: every view is
+  built at load time from README.md and the <NNN-slug>/{spec,plan,tasks,notes}.md
+  files fetched beside it. Start the server that sits next to this file:
+
+      python specs/serve.py
+
+  then open http://127.0.0.1:8777/
+
+  serve.py is what makes saving possible. Under any plain static server
+  (python -m http.server) the page still works, read-only.
+-->
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #d9dde3;
+  --text: #1b1f24; --muted: #5c6670; --link: #0b5cad; --accent: #0b5cad;
+  --code-bg: #eef0f3; --warn-bg: #fff4d6; --warn-border: #e0b040; --warn-text: #6b4a00;
+  --err-bg: #fde8e8; --err-border: #d66; --err-text: #8a1f1f;
+  --ok: #1a7f4b;
+  --st-draft-bg: #e6e8eb; --st-draft-fg: #454d56;
+  --st-approved-bg: #dbe9fb; --st-approved-fg: #0b4a8f;
+  --st-planned-bg: #e9e1fa; --st-planned-fg: #54309a;
+  --st-progress-bg: #fdecc8; --st-progress-fg: #7a4b00;
+  --st-validated-bg: #d8f0e0; --st-validated-fg: #14603a;
+  --st-unknown-bg: #f3dfe9; --st-unknown-fg: #7a2452;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171a; --surface: #1c2024; --surface-2: #24292e; --border: #353c44;
+    --text: #e4e7ea; --muted: #9aa4ae; --link: #7ab8f5; --accent: #7ab8f5;
+    --code-bg: #262b31; --warn-bg: #3a2f10; --warn-border: #8a6d1c; --warn-text: #f1d48a;
+    --err-bg: #3b1c1c; --err-border: #a44; --err-text: #f3b0b0;
+    --ok: #5fd08f;
+    --st-draft-bg: #2f353b; --st-draft-fg: #c3cad1;
+    --st-approved-bg: #16345a; --st-approved-fg: #a9d0fb;
+    --st-planned-bg: #33255c; --st-planned-fg: #cdbaf7;
+    --st-progress-bg: #4a3608; --st-progress-fg: #f6d58a;
+    --st-validated-bg: #153f29; --st-validated-fg: #9fe3bb;
+    --st-unknown-bg: #4a1f36; --st-unknown-fg: #f3b6d4;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+a { color: var(--link); }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
+header.top h1 { font-size: 20px; margin: 0; flex: 0 1 auto; min-width: 0; }
+header.top h1 a { color: inherit; text-decoration: none; }
+.loaded { color: var(--muted); font-size: 13px; }
+button, input[type="search"] {
+  font: inherit; color: var(--text); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px;
+}
+button { cursor: pointer; }
+button:hover:not(:disabled) { background: var(--surface-2); }
+button:disabled { opacity: .6; cursor: default; }
+h2.section { font-size: 16px; margin: 28px 0 10px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.pad { padding: 12px 16px; }
+.editbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; margin-bottom: 10px; }
+.editbar .path { margin-right: auto; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.1); }
+textarea.editor {
+  display: block; width: 100%; min-height: 65vh; resize: vertical; box-sizing: border-box;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; tab-size: 2;
+}
+.md input[type="checkbox"]:not(:disabled) { cursor: pointer; }
+.mode { font-size: 12px; color: var(--muted); }
+
+/* ---------- progress view ---------- */
+/* Chart colours. One hue for "done" everywhere; "open" is a neutral, so the
+   two states never depend on telling two hues apart. Dark values are chosen
+   for the dark surface, not flipped. */
+:root { --series-done: #2a78d6; --series-open: #c4cad2; }
+@media (prefers-color-scheme: dark) { :root { --series-done: #3987e5; --series-open: #454d56; } }
+.nav { display: flex; gap: 4px; margin: 0 auto 0 12px; }
+.nav a { padding: 4px 10px; border-radius: 6px; text-decoration: none; color: var(--muted); font-size: 14px; }
+.nav a:hover { color: var(--text); }
+.nav a.active { background: var(--surface-2); color: var(--text); font-weight: 600; }
+.pg-filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 12px; }
+.pg-filters input[type="search"] { flex: 1 1 200px; min-width: 0; max-width: 300px; }
+.pg-filters label { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.pg-filters select { font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+.pg-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.pg-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.pg-tile .n { font-size: 26px; font-weight: 650; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.pg-tile .n small { font-size: 14px; font-weight: 400; color: var(--muted); }
+.pg-tile .l { font-size: 12px; color: var(--muted); }
+.pg-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.pg-chart { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+.pg-chart h3 { margin: 0 0 2px; font-size: 14px; }
+.pg-chart .sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.pg-row { display: grid; grid-template-columns: minmax(64px, 46%) 1fr 3.4em; gap: 8px; align-items: center; padding: 4px 4px; margin: 0 -4px; font-size: 13px; border-radius: 4px; color: inherit; text-decoration: none; }
+.pg-row.click { cursor: pointer; }
+.pg-row:hover, .pg-row:focus-visible { background: var(--surface-2); }
+.pg-row.on { background: var(--surface-2); font-weight: 600; }
+.pg-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-row .val { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; text-align: right; font-weight: 400; }
+.pg-row .none { font-size: 12px; color: var(--muted); }
+.hbar { display: flex; gap: 2px; height: 12px; min-width: 0; }
+.hbar i { display: block; height: 100%; border-radius: 4px; min-width: 3px; }
+.hbar .done { background: var(--series-done); }
+.hbar .open { background: var(--series-open); }
+.pg-legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.pg-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--text); color: var(--bg); font-size: 12px; line-height: 1.4; padding: 5px 8px; border-radius: 6px; max-width: 280px; white-space: pre-line; }
+.pg-group { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-top: 12px; }
+.pg-group > header { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 10px 14px; }
+.pg-group > header h3 { margin: 0; font-size: 15px; }
+.pg-group > header h3 a { color: inherit; text-decoration: none; }
+.pg-group > header h3 a:hover { text-decoration: underline; }
+.pg-group > header .num { color: var(--muted); font-weight: 400; margin-right: 6px; }
+.pg-group > header .right { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pg-group ul { list-style: none; margin: 0; padding: 0 14px 6px; }
+.pg-group li { display: grid; grid-template-columns: auto 2em 1fr auto; gap: 8px; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--border); font-size: 14px; }
+.pg-group li.done .t { color: var(--muted); text-decoration: line-through; }
+.pg-group li .n { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.pg-group li .chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.pg-group .empty { padding: 0 14px 12px; font-size: 13px; color: var(--muted); }
+.chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+@media (max-width: 560px) {
+  .pg-group li { grid-template-columns: auto 2em 1fr; }
+  .pg-group li .chips { grid-column: 3; justify-content: flex-start; }
+}
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+.msg { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; background: var(--surface); margin: 12px 0; }
+.msg.error { background: var(--err-bg); border-color: var(--err-border); color: var(--err-text); }
+.msg pre { background: var(--code-bg); color: var(--text); padding: 10px 12px; border-radius: 6px; overflow-x: auto; margin: 10px 0 0; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+.toolbar input[type="search"] { flex: 1 1 220px; min-width: 0; max-width: 360px; }
+.summary { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+
+table.index { width: 100%; border-collapse: collapse; }
+table.index th, table.index td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+table.index thead th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; white-space: nowrap; }
+table.index tbody tr:last-child td { border-bottom: 0; }
+table.index td.num { white-space: nowrap; color: var(--muted); }
+table.index td.name { font-weight: 600; }
+table.index td.name a { text-decoration: none; }
+table.index td.name a:hover { text-decoration: underline; }
+table.index td.oq { white-space: nowrap; }
+.oq-open { font-weight: 700; color: var(--warn-text); background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 10px; padding: 0 8px; }
+
+.badge { display: inline-block; white-space: nowrap; border-radius: 10px; padding: 1px 9px; font-size: 12px; font-weight: 600; line-height: 1.6; }
+.badge.draft { background: var(--st-draft-bg); color: var(--st-draft-fg); }
+.badge.approved { background: var(--st-approved-bg); color: var(--st-approved-fg); }
+.badge.planned { background: var(--st-planned-bg); color: var(--st-planned-fg); }
+.badge.progress { background: var(--st-progress-bg); color: var(--st-progress-fg); }
+.badge.validated { background: var(--st-validated-bg); color: var(--st-validated-fg); }
+.badge.unknown { background: var(--st-unknown-bg); color: var(--st-unknown-fg); }
+
+.pipeline { display: inline-flex; align-items: center; white-space: nowrap; }
+.pipeline .step {
+  font-size: 12px; line-height: 1.5; padding: 1px 7px; border: 1px solid var(--border);
+  border-radius: 4px; text-decoration: none; color: var(--muted); background: transparent;
+}
+.pipeline .step.absent { border-style: dashed; opacity: .75; }
+.pipeline .step.present { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+.pipeline .step.failed { background: var(--err-bg); border-color: var(--err-border); color: var(--err-text); }
+.pipeline .join { width: 8px; height: 1px; background: var(--border); }
+
+.progress { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.progress .bar { flex: 0 0 90px; height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+.progress .bar > span { display: block; height: 100%; background: var(--ok); }
+.progress.big { font-size: 14px; margin: 0 0 14px; }
+.progress.big .bar { flex: 1 1 auto; max-width: 320px; height: 10px; border-radius: 5px; }
+
+ul.attention { list-style: none; margin: 0; padding: 0; }
+ul.attention li { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+ul.attention li:last-child { border-bottom: 0; }
+ul.attention .where { font-size: 12px; color: var(--muted); display: block; }
+ul.attention .kind { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-right: 6px; color: var(--warn-text); }
+
+details.about { margin: 0 0 14px; }
+details.about summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+
+.back { display: inline-block; margin-bottom: 10px; text-decoration: none; font-size: 14px; }
+.spec-head h2 { margin: 0 0 4px; font-size: 22px; line-height: 1.25; }
+.spec-head .num { color: var(--muted); font-weight: 400; margin-right: 6px; }
+.spec-head .meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 6px 0; font-size: 13px; color: var(--muted); }
+.spec-head .requires { margin: 6px 0 0; }
+.tabs { display: flex; gap: 2px; margin: 16px 0 -1px; position: relative; z-index: 1; overflow-x: auto; overflow-y: hidden; }
+.tabs .tab {
+  padding: 8px 14px; text-decoration: none; color: var(--muted); white-space: nowrap;
+  border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0;
+}
+.tabs a.tab:hover { color: var(--text); }
+.tabs .tab.active { color: var(--text); font-weight: 600; background: var(--surface); border-color: var(--border); }
+.tabs .tab.disabled { opacity: .5; cursor: not-allowed; }
+.tabs .tab .count { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.tabpanel { background: var(--surface); border: 1px solid var(--border); border-radius: 0 8px 8px 8px; padding: 16px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+.seg a { padding: 4px 12px; font-size: 13px; text-decoration: none; color: var(--muted); }
+.seg a + a { border-left: 1px solid var(--border); }
+.seg a.active { background: var(--surface-2); color: var(--text); font-weight: 600; }
+
+.req { display: grid; grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr); gap: 4px 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.req:last-child { border-bottom: 0; }
+.req-head { display: grid; grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.req .id { font-weight: 700; }
+.req .crit + .crit { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.req .shared { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.req .none { color: var(--warn-text); background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 6px; padding: 2px 8px; display: inline-block; font-size: 13px; }
+.req .md > :first-child { margin-top: 0; }
+.req .md > :last-child { margin-bottom: 0; }
+.req .col-label { display: none; }
+
+.md { overflow-wrap: break-word; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md h1 { font-size: 24px; line-height: 1.25; margin: 0 0 14px; }
+.md h2 { font-size: 19px; margin: 28px 0 10px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.md h3 { font-size: 16px; margin: 22px 0 8px; }
+.md h4, .md h5, .md h6 { font-size: 15px; margin: 18px 0 6px; }
+.md p, .md ul, .md ol, .md blockquote, .md pre, .md .table-wrap { margin: 0 0 12px; }
+.md ul, .md ol { padding-left: 24px; }
+.md li { margin: 3px 0; }
+.md li > ul, .md li > ol { margin: 3px 0 0; }
+.md li > p { margin: 0 0 6px; }
+.md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -20px; }
+.md li > input[type="checkbox"] { margin: 0 6px 0 0; }
+.md code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: .9em; overflow-wrap: anywhere; }
+.md a > code { color: inherit; }
+.md pre { background: var(--code-bg); padding: 12px 14px; border-radius: 6px; overflow-x: auto; line-height: 1.45; }
+.md pre code { background: none; padding: 0; font-size: 13px; overflow-wrap: normal; white-space: pre; }
+.md blockquote { border-left: 3px solid var(--border); padding: 4px 0 4px 14px; color: var(--muted); }
+.md blockquote > :last-child { margin-bottom: 0; }
+.md del { color: var(--muted); }
+.md hr { border: 0; border-top: 1px solid var(--border); margin: 20px 0; }
+.md .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
+.md table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.md th, .md td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--border); min-width: 90px; }
+.md th { background: var(--surface-2); font-weight: 600; }
+.md tr:last-child td { border-bottom: 0; }
+.md a.dead { color: var(--muted); text-decoration: underline dotted; cursor: help; }
+.md img { max-width: 100%; }
+
+@media (max-width: 760px) {
+  .wrap { padding: 12px; }
+  table.index thead { position: absolute; left: -9999px; }
+  table.index, table.index tbody, table.index tr, table.index td { display: block; width: 100%; }
+  table.index tr { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  table.index tbody tr:last-child { border-bottom: 0; }
+  table.index td { border: 0; padding: 2px 0; }
+  table.index td.num { display: inline; width: auto; }
+  table.index td.name { display: inline; width: auto; margin-left: 6px; font-size: 16px; }
+  table.index td.requires { margin: 4px 0 6px; }
+  table.index td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-size: 12px; margin-right: 4px; }
+  table.index td.status, table.index td.oq { display: inline-block; width: auto; margin-right: 14px; }
+  table.index td.pipe { margin-top: 4px; }
+  .req, .req-head { grid-template-columns: minmax(0, 1fr); }
+  .req-head { display: none; }
+  .req .col-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; margin-top: 8px; }
+  .tabpanel { padding: 12px; }
+  .md h1 { font-size: 21px; }
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"
+  integrity="sha512-xeUh+KxNyTufZOje++oQHstlMQ8/rpyzPuM+gjMFYK3z5ILJGE7l2NvYL+XfliKURMpBIKKp1XoPN/qswlSMFA=="
+  crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"
+  integrity="sha512-jB0TkTBeQC9ZSkBqDhdmfTv1qdfbWpGE72yJ/01Srq6hEzZIz2xkz1e57p9ai7IeHMwEG7HpzG6NdptChif5Pg=="
+  crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1><a href="#" id="title">Specs</a></h1>
+    <nav class="nav" aria-label="Views"><a href="#" id="nav-index">Index</a><a href="#progress" id="nav-progress">Progress</a></nav>
+    <span class="mode" id="mode"></span>
+    <span class="loaded" id="loaded" aria-live="polite"></span>
+    <button type="button" id="reload" title="Fetch every markdown file again">Reload</button>
+  </header>
+  <main id="app"><p class="muted">Loading…</p></main>
+  <div id="tip" role="tooltip" hidden></div>
+  <noscript><div class="msg error">This viewer needs JavaScript: it reads the markdown files at view time.</div></noscript>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+// The four files a spec folder can hold, in pipeline order. Which of them exist
+// for a given spec is discovered by fetching, never listed here.
+var ARTIFACTS = ['spec', 'plan', 'tasks', 'notes'];
+var INDEX_FILE = 'README.md';
+var SERVE_COMMAND = 'python specs/serve.py';
+var SERVE_URL = 'http://127.0.0.1:8777/';
+// Status words the index defines, mapped to a badge style. Anything else gets a neutral-odd badge.
+var STATUS_CLASS = { 'draft': 'draft', 'approved': 'approved', 'planned': 'planned', 'in progress': 'progress', 'validated': 'validated' };
+
+var app = document.getElementById('app');
+var state = null;      // result of the last load()
+var filterText = '';
+var canEdit = false;   // true only when serve.py answers; a plain static server cannot save
+var etags = {};        // path -> ETag of the text this page last read, sent back on save
+var editing = null;    // { path, original, text } while a file is open in the editor
+// Filters of the progress view. Kept here so a reload or a ticked task does not reset them.
+var pf = { q: '', status: '', stage: '', task: 'all', par: false };
+
+/* ---------- small DOM helpers ---------- */
+
+function h(tag, attrs) {
+  var el = document.createElement(tag), k, v, i;
+  for (k in (attrs || {})) {
+    v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'html') el.appendChild(fragment(v));           // callers pass sanitised HTML only
+    else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  var kids = Array.prototype.slice.call(arguments, 2);
+  kids = [].concat.apply([], kids);
+  for (i = 0; i < kids.length; i++) {
+    if (kids[i] == null || kids[i] === false) continue;
+    el.append(kids[i].nodeType ? kids[i] : String(kids[i]));
+  }
+  return el;
+}
+function fragment(html) { var t = document.createElement('template'); t.innerHTML = html; return t.content; }
+function show() { app.replaceChildren.apply(app, arguments); }
+
+/* ---------- markdown ---------- */
+
+function sanitize(html) { return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }); }
+function mdBlock(src) { return sanitize(marked.parse(src)); }
+function mdInline(src) { return sanitize(marked.parseInline(src)); }
+function mdTokens(tokens, links) { tokens.links = links || {}; return sanitize(marked.parser(tokens)); }
+
+// Resolve a relative path against a base folder ('' or 'folder/'). Returns null if it leaves the served root.
+function resolvePath(base, rel) {
+  var out = [], parts = (base + rel).split('/'), i;
+  for (i = 0; i < parts.length; i++) {
+    if (parts[i] === '' || parts[i] === '.') continue;
+    if (parts[i] === '..') { if (!out.length) return null; out.pop(); }
+    else out.push(parts[i]);
+  }
+  return out.join('/');
+}
+
+// Map a path inside the served folder to a view of this page, or null.
+function viewHashFor(path) {
+  if (!state) return null;
+  if (path === INDEX_FILE || path === '') return '#';
+  var m = /^([^/]+)(?:\/([^/]+)\.md)?$/.exec(path);
+  if (!m) return null;
+  var row = state.byFolder[m[1]];
+  if (!row) return null;
+  if (!m[2]) return '#' + row.folder;
+  if (ARTIFACTS.indexOf(m[2]) !== -1 && row.files[m[2]] != null) return '#' + row.folder + '/' + m[2];
+  return null;
+}
+
+// Post-process rendered markdown: scrollable tables, links that stay inside the viewer,
+// and code spans naming a spec folder or artifact become links to it.
+function enhance(root, base) {
+  root.querySelectorAll('table').forEach(function (t) {
+    var w = h('div', { class: 'table-wrap' });
+    t.parentNode.insertBefore(w, t);
+    w.appendChild(t);
+  });
+  root.querySelectorAll('a[href]').forEach(function (a) {
+    var href = a.getAttribute('href');
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.slice(0, 2) === '//') {
+      a.target = '_blank'; a.rel = 'noopener noreferrer';
+      return;
+    }
+    if (href.charAt(0) === '#') return;
+    var path = resolvePath(base, href.split('#')[0].split('?')[0]);
+    var view = path == null ? null : viewHashFor(path);
+    if (view) a.setAttribute('href', view);
+    else if (path == null) {
+      a.removeAttribute('href');
+      a.classList.add('dead');
+      a.title = href + ' is outside this folder and is not served by the viewer';
+    } else a.setAttribute('href', path);
+  });
+  root.querySelectorAll('code').forEach(function (c) {
+    if (c.closest('pre') || c.closest('a')) return;
+    var t = c.textContent.trim().replace(/^specs\//, '').replace(/\/$/, '');
+    var view = viewHashFor(t);
+    if (!view || view === '#') {
+      var own = base && /^[a-z]+\.md$/.test(t) ? viewHashFor(base + t) : null;
+      if (!own) return;
+      view = own;
+    }
+    var a = h('a', { href: view });
+    c.parentNode.insertBefore(a, c);
+    a.appendChild(c);
+  });
+  return root;
+}
+function rendered(html, base) { return enhance(h('div', { class: 'md', html: html }), base || ''); }
+
+/* ---------- reading the files ---------- */
+
+// Text of a file, or null when it does not exist. Anything else unexpected throws.
+function getText(path) {
+  return fetch(path, { cache: 'no-store' }).then(function (res) {
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(path + ' answered HTTP ' + res.status);
+    var type = res.headers.get('content-type') || '';
+    etags[path] = res.headers.get('etag');
+    return res.text().then(function (text) {
+      // Some static servers answer a missing file with their HTML fallback page.
+      if (/text\/html/i.test(type) || /^\s*<!doctype html/i.test(text)) return null;
+      return text;
+    });
+  });
+}
+
+function blank(s) { return s.replace(/[^\n]/g, ' '); }
+
+// The source with fenced code blocks blanked out, line count preserved.
+function withoutFences(src) {
+  var lines = src.split('\n'), fence = null, i, m;
+  for (i = 0; i < lines.length; i++) {
+    m = /^ {0,3}(`{3,}|~{3,})/.exec(lines[i]);
+    if (fence) {
+      if (m && m[1].charAt(0) === fence.charAt(0) && m[1].length >= fence.length && /^\s*$/.test(lines[i].slice(m[0].length))) fence = null;
+      lines[i] = '';
+    } else if (m) { fence = m[1]; lines[i] = ''; }
+  }
+  return lines.join('\n');
+}
+
+// Unresolved clarification markers. A marker that is quoted as code (fenced or
+// inline) is a mention of the convention, and one inside strikethrough is
+// resolved; neither is reported.
+function findMarkers(src) {
+  var text = withoutFences(src)
+    .replace(/(`+)(?:(?!\n[ \t]*\n)[\s\S])*?\1/g, blank)
+    .replace(/~~(?:(?!\n[ \t]*\n)[\s\S])*?~~/g, blank);
+  var re = /\[NEEDS CLARIFICATION\b[^\]]*\]?/g, out = [], m;
+  while ((m = re.exec(text))) {
+    var quote = m[0].replace(/\s+/g, ' ');
+    out.push({ line: text.slice(0, m.index).split('\n').length, text: quote.length > 300 ? quote.slice(0, 300) + '…' : quote });
+  }
+  return out;
+}
+
+// Checklist items in a tasks file: "- [ ]" open, "- [x]" done. Fenced code is ignored.
+function countTasks(src) {
+  var re = /^[ \t]*(?:>[ \t]*)*(?:[-*+]|\d+[.)])[ \t]+\[([ xX])\](?=\s|$)/gm, done = 0, total = 0, m;
+  var text = withoutFences(src);
+  while ((m = re.exec(text))) { total++; if (m[1] !== ' ') done++; }
+  return { done: done, total: total };
+}
+
+// Where each task checkbox sits in the source, in document order: the offset of
+// the character between the brackets. Same rule as countTasks.
+function taskMarks(src) {
+  var re = /^[ \t]*(?:>[ \t]*)*(?:[-*+]|\d+[.)])[ \t]+\[([ xX])\](?=\s|$)/gm, out = [], m;
+  var text = withoutFences(src);
+  while ((m = re.exec(text))) out.push({ at: m.index + m[0].length - 2, done: m[1] !== ' ' });
+  return out;
+}
+
+// Numbers in a cell like "3, 4, 7-9": each one, ranges expanded.
+function numbersIn(text) {
+  var out = [], re = /(\d+)(?:\s*[-–—]\s*(\d+))?/g, m, n;
+  while ((m = re.exec(text))) for (n = +m[1]; n <= +(m[2] || m[1]) && out.length < 500; n++) out.push(String(n));
+  return out;
+}
+
+// Every task of a tasks file, in order, with what the file says about it:
+//   done      - its checkbox
+//   num/title - "**3** — title", "3. title" or just "title"
+//   parallel  - the title carries [P]
+//   wave      - from a table with "Wave" and "Tasks" columns, if there is one
+//   reqs      - FR ids on the "Spec:" line of the section headed "<num>. ..."
+function parseTasks(src) {
+  var waveOf = {}, reqsOf = {};
+  marked.lexer(src).forEach(function (t) {
+    if (t.type !== 'table') return;
+    var w = -1, k = -1;
+    t.header.forEach(function (c, i) { var n = c.text.trim().toLowerCase(); if (n === 'wave') w = i; else if (n === 'tasks' || n === 'task') k = i; });
+    if (w < 0 || k < 0) return;
+    t.rows.forEach(function (r) { numbersIn(r[k].text).forEach(function (n) { waveOf[n] = r[w].text.trim(); }); });
+  });
+  var plain = withoutFences(src), head = /^#{2,5}[ \t]+(?:[-*][ \t]+\[[ xX]\][ \t]+)?(\d+)[.)][ \t]/gm, heads = [], m;
+  while ((m = head.exec(plain))) heads.push({ num: m[1], at: m.index });
+  heads.forEach(function (hd, i) {
+    var body = plain.slice(hd.at, i + 1 < heads.length ? heads[i + 1].at : plain.length);
+    var line = /\*\*Spec:?\*\*:?([^\n]*(?:\n(?![ \t]*[-*+][ \t])[ \t]+[^\n]*)*)/.exec(body);
+    reqsOf[hd.num] = line ? (line[1].match(/\b[A-Z]{1,4}\d+\b/g) || []).filter(function (id, n, all) { return all.indexOf(id) === n; }) : [];
+  });
+  return taskMarks(src).map(function (mk, i) {
+    var end = src.indexOf('\n', mk.at), text = src.slice(mk.at + 2, end < 0 ? src.length : end).trim();
+    var nm = /^(?:\*\*(\d+)\*\*|(\d+)[.)])[ \t]*(?:[—–:-][ \t]*)?/.exec(text);
+    var num = nm ? (nm[1] || nm[2]) : '', title = nm ? text.slice(nm[0].length) : text;
+    var parallel = /\[P\]/.test(title);
+    title = title.replace(/`?\[P\]`?[ \t]*/g, '').trim();
+    return { i: i, done: mk.done, num: num, title: title, parallel: parallel, wave: num && waveOf[num] ? waveOf[num] : '', reqs: (num && reqsOf[num]) || [] };
+  });
+}
+
+/* ---------- saving ---------- */
+
+function isDirty() { return !!editing && editing.text !== editing.original; }
+
+// Writes a file through serve.py. Rejects with a message fit to show as it is.
+function saveText(path, text) {
+  return fetch(path, {
+    method: 'PUT', body: text,
+    headers: { 'Content-Type': 'text/markdown; charset=utf-8', 'If-Match': etags[path] || '', 'X-Specs-Edit': '1' }
+  }).then(function (res) {
+    if (res.ok) { etags[path] = res.headers.get('etag'); return; }
+    if (res.status === 412) throw new Error(path + ' changed on disk since this page read it. Nothing was saved. Copy your text, press Reload, and apply it again.');
+    return res.json().then(function (j) { return j && j.error; }, function () { return null; }).then(function (msg) {
+      throw new Error('Not saved (HTTP ' + res.status + ')' + (msg ? ': ' + msg : '.'));
+    });
+  });
+}
+
+function editButton(path, original) {
+  if (!canEdit) return null;
+  return h('button', { type: 'button', onclick: function () { editing = { path: path, original: original, text: original }; route(); } }, 'Edit');
+}
+
+// The raw markdown of one file in a textarea. The whole file is saved, never a part of it.
+function renderEditor() {
+  var status = h('span', { class: 'small', role: 'status' });
+  var save = h('button', { type: 'button', class: 'primary', disabled: !isDirty() }, 'Save');
+  var cancel = h('button', { type: 'button' }, 'Cancel');
+  var area = h('textarea', { class: 'editor', spellcheck: 'false', 'aria-label': 'Markdown of ' + editing.path });
+  area.value = editing.text;
+  area.addEventListener('input', function () { editing.text = area.value; save.disabled = !isDirty(); status.textContent = ''; });
+  area.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (!save.disabled) save.click(); }
+  });
+  cancel.addEventListener('click', function () {
+    if (isDirty() && !window.confirm('Discard your unsaved changes to ' + editing.path + '?')) return;
+    editing = null; route();
+  });
+  save.addEventListener('click', function () {
+    save.disabled = cancel.disabled = true; status.textContent = 'Saving…';
+    saveText(editing.path, editing.text).then(function () {
+      editing = null; return refresh();
+    }, function (err) {
+      cancel.disabled = false; save.disabled = !isDirty();
+      status.textContent = ''; status.append(h('span', { style: 'color:var(--err-text)' }, err.message));
+    });
+  });
+  return h('div', {},
+    h('div', { class: 'editbar' }, h('span', { class: 'path mono small' }, 'Editing ' + editing.path), status, cancel, save),
+    area);
+}
+
+// Makes the rendered task checkboxes of a file clickable. Each click rewrites
+// one character of the source and saves the whole file.
+function liveTasks(root, path, src) {
+  var boxes = root.querySelectorAll('input[type="checkbox"]'), marks = taskMarks(src);
+  if (!canEdit || !boxes.length || boxes.length !== marks.length) return;   // cannot pair them up: leave read-only
+  boxes.forEach(function (box, i) {
+    box.disabled = false;
+    box.addEventListener('change', function () {
+      boxes.forEach(function (b) { b.disabled = true; });
+      var next = src.slice(0, marks[i].at) + (box.checked ? 'x' : ' ') + src.slice(marks[i].at + 1);
+      saveText(path, next).then(refresh, function (err) { window.alert(err.message); return refresh(); });
+    });
+  });
+}
+
+function findLink(tokens) {
+  var i, hit;
+  for (i = 0; tokens && i < tokens.length; i++) {
+    if (tokens[i].type === 'link') return tokens[i];
+    hit = findLink(tokens[i].tokens);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// Parse the index: the table that has a status column and links to spec files,
+// plus the prose around it split into what comes before, with and after the table.
+function parseIndex(src) {
+  var tokens = marked.lexer(src), links = tokens.links, i, t, ti = -1, cols = null;
+  for (i = 0; i < tokens.length && ti < 0; i++) {
+    t = tokens[i];
+    if (t.type !== 'table') continue;
+    var c = { num: -1, spec: -1, requires: -1, status: -1, open: -1 };
+    t.header.forEach(function (cell, n) {
+      var name = cell.text.trim().toLowerCase();
+      if (name === '#' || name === 'no' || name === 'no.') c.num = n;
+      else if (name === 'spec') c.spec = n;
+      else if (name.indexOf('what') === 0 || name === 'requires' || name === 'summary') c.requires = n;
+      else if (name === 'status') c.status = n;
+      else if (name.indexOf('open') === 0) c.open = n;
+    });
+    if (c.spec >= 0 && c.status >= 0) { ti = i; cols = c; }
+  }
+  if (ti < 0) throw new Error('No index table with "Spec" and "Status" columns was found in ' + INDEX_FILE + '.');
+
+  var cellText = function (row, n) { return n >= 0 && row[n] ? row[n].text.trim() : ''; };
+  var rows = tokens[ti].rows.map(function (row) {
+    var link = cols.spec >= 0 && row[cols.spec] ? findLink(row[cols.spec].tokens) : null;
+    var m = link ? /^(?:\.\/)?([A-Za-z0-9][A-Za-z0-9._-]*)\/[^/]+\.md$/.exec(link.href) : null;
+    return {
+      num: cellText(row, cols.num),
+      name: link ? link.text : cellText(row, cols.spec),
+      folder: m ? m[1] : null,
+      requires: cellText(row, cols.requires),
+      status: cellText(row, cols.status),
+      open: cellText(row, cols.open),
+      files: {}, errors: {}, markers: [], tasks: null
+    };
+  });
+
+  var isSection = function (tok) { return tok.type === 'heading' && tok.depth <= 2; };
+  var start = ti, end = tokens.length;
+  for (i = ti - 1; i >= 0; i--) if (isSection(tokens[i])) { start = i; break; }
+  for (i = ti + 1; i < tokens.length; i++) if (isSection(tokens[i])) { end = i; break; }
+  var h1 = tokens.filter(function (tok) { return tok.type === 'heading' && tok.depth === 1; })[0];
+
+  return {
+    title: h1 ? h1.text : null,
+    rows: rows,
+    links: links,
+    before: tokens.slice(0, start).filter(function (tok) { return tok !== h1; }),
+    beside: tokens.slice(start, end).filter(function (tok, n) { return tok.type !== 'table' && !(n === 0 && isSection(tok)); }),
+    after: tokens.slice(end)
+  };
+}
+
+// Requirement ids named by a bold label: "FR1", "FR5, FR6", "FR4–FR7".
+function idsFromLabel(label) {
+  var ids = [], ok = true;
+  label.split(/\s*(?:,|&|\band\b)\s*/).forEach(function (part) {
+    part = part.trim();
+    var range = /^([A-Za-z]+)(\d+)\s*[-–—]\s*(?:\1)?(\d+)$/.exec(part);
+    if (range && +range[3] >= +range[2] && +range[3] - +range[2] < 100) {
+      for (var n = +range[2]; n <= +range[3]; n++) ids.push(range[1] + n);
+    } else if (/^[A-Za-z]+\d+[a-z]?$/.test(part)) ids.push(part);
+    else ok = false;
+  });
+  return ok ? ids : [];
+}
+
+// Pair each labelled requirement with every acceptance criterion that names its id.
+function parseRequirements(src) {
+  var tokens = marked.lexer(src);
+  function items(headingRe) {
+    var out = [], inside = false;
+    tokens.forEach(function (tok) {
+      if (tok.type === 'heading' && tok.depth <= 2) inside = headingRe.test(tok.text.trim());
+      else if (inside && tok.type === 'list') tok.items.forEach(function (it) {
+        var m = /^\*\*([^*]+)\*\*\s*(?:[—–:-]\s*)?([\s\S]*)$/.exec(it.text);
+        var ids = m ? idsFromLabel(m[1]) : [];
+        out.push({ label: m && ids.length ? m[1].trim() : null, ids: ids, body: m && ids.length ? m[2] : it.text });
+      });
+    });
+    return out;
+  }
+  var reqItems = items(/^functional requirements\b/i), critItems = items(/^acceptance criteria\b/i);
+  var reqs = [], byId = {}, loose = [];
+  reqItems.forEach(function (it) {
+    it.ids.forEach(function (id) {
+      if (byId[id]) return;
+      byId[id] = { id: id, body: it.body, criteria: [] };
+      reqs.push(byId[id]);
+    });
+  });
+  critItems.forEach(function (it) {
+    var matched = false;
+    it.ids.forEach(function (id) { if (byId[id]) { byId[id].criteria.push(it); matched = true; } });
+    if (!matched) loose.push(it);
+  });
+  return { reqs: reqs, loose: loose, links: tokens.links };
+}
+
+function load() {
+  return getText(INDEX_FILE).then(function (src) {
+    if (src == null) throw new Error(INDEX_FILE + ' was not found next to this page.');
+    var idx = parseIndex(src);
+    var s = {
+      title: idx.title, rows: idx.rows, index: idx, indexSource: src, byFolder: {},
+      indexMarkers: findMarkers(src), loadedAt: new Date()
+    };
+    var jobs = [];
+    s.rows.forEach(function (row) {
+      if (!row.folder || s.byFolder[row.folder]) return;
+      s.byFolder[row.folder] = row;
+      ARTIFACTS.forEach(function (name) {
+        jobs.push(getText(row.folder + '/' + name + '.md').then(function (text) {
+          row.files[name] = text;
+          if (text == null) return;
+          findMarkers(text).forEach(function (mk) { mk.file = name; row.markers.push(mk); });
+          if (name === 'tasks') { row.tasks = countTasks(text); row.taskList = parseTasks(text); }
+        }, function (err) { row.files[name] = null; row.errors[name] = err.message; }));
+      });
+    });
+    return Promise.all(jobs).then(function () { return s; });
+  });
+}
+
+/* ---------- shared pieces ---------- */
+
+function statusBadge(status) {
+  var key = status.trim().toLowerCase().replace(/[`*_]/g, '').replace(/[\s-]+/g, ' ');
+  return h('span', { class: 'badge ' + (STATUS_CLASS[key] || 'unknown'), title: STATUS_CLASS[key] ? null : 'Not one of the statuses this viewer knows' }, status || 'no status');
+}
+
+function pipeline(row) {
+  var el = h('span', { class: 'pipeline', role: 'list' });
+  ARTIFACTS.forEach(function (name, n) {
+    if (n) el.append(h('span', { class: 'join', 'aria-hidden': 'true' }));
+    if (row.errors[name]) el.append(h('span', { class: 'step failed', role: 'listitem', title: row.errors[name] }, name + ' !'));
+    else if (row.files[name] != null) el.append(h('a', { class: 'step present', role: 'listitem', href: '#' + row.folder + '/' + name, title: name + '.md exists' }, '✓ ' + name));
+    else el.append(h('span', { class: 'step absent', role: 'listitem', title: name + '.md not there yet' }, name));
+  });
+  return el;
+}
+
+function progress(tasks, big) {
+  if (!tasks) return null;
+  if (!tasks.total) return h('div', { class: 'progress' + (big ? ' big' : '') }, 'tasks.md has no checkboxes yet');
+  var pct = Math.round(100 * tasks.done / tasks.total);
+  return h('div', { class: 'progress' + (big ? ' big' : '') },
+    h('span', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(tasks.total), 'aria-valuenow': String(tasks.done), 'aria-label': 'Tasks done' },
+      h('span', { style: 'width:' + pct + '%' })),
+    tasks.done + ' of ' + tasks.total + ' tasks done (' + pct + '%)');
+}
+
+function label(row) { return (row.num ? row.num + ' ' : '') + row.name; }
+
+/* ---------- overview ---------- */
+
+function attentionItems(s) {
+  var items = [];
+  s.indexMarkers.forEach(function (mk) {
+    items.push({ kind: 'Needs clarification', text: mk.text, where: INDEX_FILE + ', line ' + mk.line, href: null });
+  });
+  s.rows.forEach(function (row) {
+    if (!row.folder) { items.push({ kind: 'Index', text: 'The index row "' + label(row) + '" does not link to a spec file.', where: INDEX_FILE }); return; }
+    if (s.byFolder[row.folder] !== row) { items.push({ kind: 'Index', text: 'The index lists ' + row.folder + ' more than once.', where: INDEX_FILE }); return; }
+    ARTIFACTS.forEach(function (name) {
+      if (row.errors[name]) items.push({ kind: 'Could not read', text: row.errors[name], where: label(row) + ' · ' + name + '.md' });
+    });
+    if (row.files.spec == null && !row.errors.spec) items.push({ kind: 'Missing', text: 'The index lists this spec but its spec.md was not found.', where: label(row), href: '#' + row.folder });
+    row.markers.forEach(function (mk) {
+      items.push({ kind: 'Needs clarification', text: mk.text, where: label(row) + ' · ' + mk.file + '.md, line ' + mk.line, href: '#' + row.folder + '/' + mk.file });
+    });
+    var inSpec = row.markers.filter(function (mk) { return mk.file === 'spec'; }).length;
+    if (/^\d+$/.test(row.open) && row.files.spec != null && +row.open !== inSpec) {
+      items.push({ kind: 'Count differs', text: 'The index says ' + row.open + ' open question' + (+row.open === 1 ? '' : 's') + '; spec.md holds ' + inSpec + ' unresolved clarification marker' + (inSpec === 1 ? '' : 's') + '.', where: label(row), href: '#' + row.folder + '/spec' });
+    }
+    if (row.files.spec != null) {
+      var bare = parseRequirements(row.files.spec).reqs.filter(function (r) { return !r.criteria.length; }).map(function (r) { return r.id; });
+      if (bare.length) items.push({ kind: 'No criterion', text: bare.join(', ') + (bare.length === 1 ? ' has' : ' have') + ' no acceptance criterion.', where: label(row), href: '#' + row.folder + '/spec/requirements' });
+    }
+  });
+  return items;
+}
+
+function renderOverview(s) {
+  var idx = s.index, known = s.rows.filter(function (r) { return r.folder && s.byFolder[r.folder] === r; });
+
+  // summary line, all derived
+  var counts = {}, order = [];
+  s.rows.forEach(function (r) { var k = r.status || 'no status'; if (!(k in counts)) { counts[k] = 0; order.push(k); } counts[k]++; });
+  var withTasks = known.filter(function (r) { return r.tasks; });
+  var done = 0, total = 0;
+  withTasks.forEach(function (r) { done += r.tasks.done; total += r.tasks.total; });
+  var summary = !s.rows.length ? 'No spec yet. /sdd-specify writes the first one and adds its row to the index.' :
+    s.rows.length + ' spec' + (s.rows.length === 1 ? '' : 's') + ' — ' +
+    order.map(function (k) { return counts[k] + ' ' + k; }).join(', ') + '. ' +
+    (withTasks.length
+      ? 'Tasks: ' + done + ' of ' + total + ' done across ' + withTasks.length + ' spec' + (withTasks.length === 1 ? '' : 's') + ' with a tasks.md.'
+      : 'No tasks.md has been written yet.');
+
+  var shown = h('span', { class: 'muted small' });
+  var none = h('p', { class: 'pad muted', hidden: true }, 'No spec matches the filter.');
+  var body = h('tbody');
+  s.rows.forEach(function (row) {
+    var openIsNumber = /^\d+$/.test(row.open);
+    var tr = h('tr', {},
+      h('td', { class: 'num mono' }, row.num),
+      h('td', { class: 'name' }, row.folder ? h('a', { href: '#' + row.folder }, row.name) : row.name),
+      h('td', { class: 'requires', html: mdInline(row.requires) }),
+      h('td', { class: 'status', 'data-label': 'Status' }, statusBadge(row.status)),
+      h('td', { class: 'oq', 'data-label': 'Open questions' },
+        openIsNumber && +row.open > 0 ? h('span', { class: 'oq-open' }, row.open) : h('span', { class: openIsNumber ? 'muted' : null }, row.open || '—')),
+      h('td', { class: 'pipe' }, row.folder ? [pipeline(row), progress(row.tasks)] : h('span', { class: 'muted' }, '—')));
+    tr.dataset.search = [row.num, row.name, row.folder, row.requires, row.status].join(' ').toLowerCase();
+    enhance(tr.querySelector('.requires'), '');
+    body.append(tr);
+  });
+
+  function applyFilter() {
+    var words = filterText.toLowerCase().split(/\s+/).filter(Boolean), n = 0;
+    Array.prototype.forEach.call(body.children, function (tr) {
+      var hit = words.every(function (w) { return tr.dataset.search.indexOf(w) !== -1; });
+      tr.hidden = !hit; if (hit) n++;
+    });
+    shown.textContent = words.length ? n + ' of ' + s.rows.length + ' shown' : '';
+    none.hidden = n !== 0;
+  }
+  var input = h('input', { type: 'search', placeholder: 'Filter by number, name, text or status', 'aria-label': 'Filter specs', value: filterText,
+    oninput: function (e) { filterText = e.target.value; applyFilter(); } });
+
+  var attention = attentionItems(s);
+  var filesRead = 1 + known.reduce(function (n, r) { return n + ARTIFACTS.filter(function (a) { return r.files[a] != null; }).length; }, 0);
+
+  var parts = [];
+  if (editing && editing.path === INDEX_FILE) { show(h('div', { class: 'panel pad' }, renderEditor())); return; }
+  if (canEdit) parts.push(h('div', { class: 'editbar' }, editButton(INDEX_FILE, s.indexSource)));
+  if (idx.before.length) parts.push(h('details', { class: 'about' }, h('summary', {}, 'About this index'), h('div', { class: 'panel pad', style: 'margin-top:8px' }, rendered(mdTokens(idx.before, idx.links)))));
+  parts.push(
+    h('div', { class: 'toolbar' }, input, shown),
+    h('p', { class: 'summary' }, summary),
+    h('div', { class: 'panel' },
+      h('table', { class: 'index' },
+        h('thead', {}, h('tr', {}, ['#', 'Spec', 'What it requires', 'Status', 'Open questions', 'Pipeline'].map(function (t) { return h('th', { scope: 'col' }, t); }))),
+        body),
+      none));
+  if (idx.beside.length) parts.push(h('div', { class: 'small muted', style: 'margin-top:10px' }, rendered(mdTokens(idx.beside, idx.links))));
+
+  parts.push(h('h2', { class: 'section' }, 'Needs attention' + (attention.length ? ' (' + attention.length + ')' : '')));
+  if (attention.length) {
+    parts.push(h('div', { class: 'panel' }, h('ul', { class: 'attention' }, attention.map(function (it) {
+      return h('li', {}, h('span', { class: 'kind' }, it.kind), it.href ? h('a', { href: it.href }, it.text) : it.text, h('span', { class: 'where' }, it.where));
+    }))));
+  } else {
+    parts.push(h('p', { class: 'muted' }, 'Nothing. No unresolved [NEEDS CLARIFICATION] marker in the ' + filesRead + ' file' + (filesRead === 1 ? '' : 's') + ' read, and every index count agrees with its spec.'));
+  }
+
+  if (idx.after.length) parts.push(h('div', { class: 'panel pad', style: 'margin-top:28px' }, rendered(mdTokens(idx.after, idx.links))));
+
+  show.apply(null, parts);
+  applyFilter();
+}
+
+/* ---------- progress view ---------- */
+
+var tipEl = document.getElementById('tip');
+function tipShow(e, text) {
+  tipEl.textContent = text; tipEl.hidden = false;
+  var r = tipEl.getBoundingClientRect(), x = e.clientX + 12, y = e.clientY + 14;
+  if (x + r.width > window.innerWidth - 8) x = Math.max(8, e.clientX - r.width - 12);
+  if (y + r.height > window.innerHeight - 8) y = Math.max(8, e.clientY - r.height - 12);
+  tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px';
+}
+function tipHide() { tipEl.hidden = true; }
+// Gives an element the hover and keyboard-focus tooltip; the same text is its accessible name.
+function withTip(el, text) {
+  el.setAttribute('aria-label', text.replace(/\n/g, ', '));
+  el.addEventListener('mousemove', function (e) { tipShow(e, text); });
+  el.addEventListener('mouseleave', tipHide);
+  el.addEventListener('focus', function () { var r = el.getBoundingClientRect(); tipShow({ clientX: r.left + 20, clientY: r.bottom - 8 }, text); });
+  el.addEventListener('blur', tipHide);
+  return el;
+}
+
+function statusKey(status) { return status.trim().toLowerCase().replace(/[`*_]/g, '').replace(/[\s-]+/g, ' '); }
+
+// Specs and tasks that pass the filters. A spec stays when it matches, or when
+// one of its tasks does; a task filter drops specs left with no task.
+function progressSelection(s) {
+  var words = pf.q.toLowerCase().split(/\s+/).filter(Boolean);
+  var taskFilter = pf.task !== 'all' || pf.par;
+  var out = [];
+  s.rows.forEach(function (row) {
+    if (!row.folder || s.byFolder[row.folder] !== row) return;
+    if (pf.status && statusKey(row.status) !== pf.status) return;
+    if (pf.stage && row.files[pf.stage] == null) return;
+    var specText = (row.num + ' ' + row.name + ' ' + row.requires + ' ' + row.status).toLowerCase();
+    var specHit = words.every(function (w) { return specText.indexOf(w) !== -1; });
+    var tasks = (row.taskList || []).filter(function (t) {
+      if (pf.task === 'open' && t.done) return false;
+      if (pf.task === 'done' && !t.done) return false;
+      if (pf.par && !t.parallel) return false;
+      if (specHit) return true;
+      var text = (t.num + ' ' + t.title + ' ' + t.reqs.join(' ') + (t.wave ? ' wave ' + t.wave : '')).toLowerCase();
+      return words.every(function (w) { return text.indexOf(w) !== -1 || specText.indexOf(w) !== -1; });
+    });
+    if (!specHit && !tasks.length) return;
+    if (taskFilter && !tasks.length) return;
+    out.push({ row: row, tasks: tasks });
+  });
+  return out;
+}
+
+// One horizontal bar: done and open segments on a shared scale, 2px apart.
+function hbar(done, open, max) {
+  var bar = h('span', { class: 'hbar', style: 'width:' + (max ? 100 * (done + open) / max : 0) + '%' });
+  if (done) bar.append(h('i', { class: 'done', style: 'flex:' + done + ' 1 0' }));
+  if (open) bar.append(h('i', { class: 'open', style: 'flex:' + open + ' 1 0' }));
+  return bar;
+}
+function doneOpenLegend() {
+  return h('div', { class: 'pg-legend' }, h('span', {}, h('i', { style: 'background:var(--series-done)' }), 'done'), h('span', {}, h('i', { style: 'background:var(--series-open)' }), 'open'));
+}
+function count(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+function renderProgress(s) {
+  var all = s.rows.filter(function (r) { return r.folder && s.byFolder[r.folder] === r; });
+  var redraw = function () { renderProgress(s); };
+
+  /* filters: one row, above everything they act on */
+  var statuses = [];
+  all.forEach(function (r) { var k = statusKey(r.status); if (k && statuses.indexOf(k) === -1) statuses.push(k); });
+  var option = function (value, text, current) { return h('option', { value: value, selected: value === current }, text); };
+  var search = h('input', { type: 'search', placeholder: 'Filter specs and tasks', 'aria-label': 'Filter specs and tasks', value: pf.q });
+  search.addEventListener('input', function () {
+    pf.q = search.value; redraw();
+    var again = app.querySelector('.pg-filters input[type="search"]');   // the redraw replaced the field being typed in
+    again.focus(); again.setSelectionRange(again.value.length, again.value.length);
+  });
+  var pick = function (key, options) {
+    var sel = h('select', {}, options);
+    sel.addEventListener('change', function () { pf[key] = sel.value; redraw(); });
+    return sel;
+  };
+  var par = h('input', { type: 'checkbox', checked: pf.par });
+  par.addEventListener('change', function () { pf.par = par.checked; redraw(); });
+  var active = pf.q || pf.status || pf.stage || pf.task !== 'all' || pf.par;
+  var clear = h('button', { type: 'button', disabled: !active, onclick: function () { pf = { q: '', status: '', stage: '', task: 'all', par: false }; redraw(); } }, 'Clear filters');
+  var filters = h('div', { class: 'pg-filters' }, search,
+    h('label', {}, 'Status', pick('status', [option('', 'any', pf.status)].concat(statuses.map(function (k) { return option(k, k, pf.status); })))),
+    h('label', {}, 'Has', pick('stage', [option('', 'any artifact', pf.stage)].concat(ARTIFACTS.map(function (a) { return option(a, a + '.md', pf.stage); })))),
+    h('label', {}, 'Tasks', pick('task', [option('all', 'all', pf.task), option('open', 'open', pf.task), option('done', 'done', pf.task)])),
+    h('label', {}, par, 'only [P]'),
+    clear);
+
+  var sel = progressSelection(s);
+  var tasks = [].concat.apply([], sel.map(function (g) { return g.tasks; }));
+  var done = tasks.filter(function (t) { return t.done; }).length;
+  var withTasks = sel.filter(function (g) { return g.row.taskList; }).length;
+  var markers = sel.reduce(function (n, g) { return n + g.row.markers.length; }, 0);
+
+  /* headline numbers */
+  var tile = function (n, small, text) { return h('div', { class: 'pg-tile' }, h('div', { class: 'n' }, n, small ? h('small', {}, ' ' + small) : null), h('div', { class: 'l' }, text)); };
+  var tiles = h('div', { class: 'pg-tiles' },
+    tile(String(sel.length), 'of ' + all.length, 'specs shown'),
+    tile(String(done), 'of ' + tasks.length, 'tasks done' + (tasks.length ? ' (' + Math.round(100 * done / tasks.length) + '%)' : '')),
+    tile(String(withTasks), 'of ' + sel.length, 'specs have a task list'),
+    tile(String(markers), '', 'open clarification marker' + (markers === 1 ? '' : 's')));
+
+  /* chart 1: tasks per spec */
+  var maxTasks = Math.max.apply(null, [0].concat(sel.map(function (g) { return g.tasks.length; })));
+  var c1 = h('div', { class: 'pg-chart' }, h('h3', {}, 'Tasks per spec'), h('div', { class: 'sub' }, 'Done and open, on one scale. Click a spec to open its tasks.'));
+  sel.forEach(function (g) {
+    var d = g.tasks.filter(function (t) { return t.done; }).length, o = g.tasks.length - d;
+    var has = !!g.row.taskList;
+    var tip = label(g.row) + '\n' + (has ? d + ' done, ' + o + ' open' + (active ? ' (filtered)' : '') : 'No tasks.md yet');
+    c1.append(withTip(h('a', { class: 'pg-row click', href: '#' + g.row.folder + '/' + (has ? 'tasks' : 'spec') },
+      h('span', { class: 'name' }, h('span', { class: 'mono muted' }, g.row.num + ' '), g.row.name),
+      has && g.tasks.length ? hbar(d, o, maxTasks) : h('span', { class: 'none' }, has ? 'no task matches' : 'no task list yet'),
+      h('span', { class: 'val' }, has ? d + '/' + g.tasks.length : '—')), tip));
+  });
+  if (!sel.length) c1.append(h('p', { class: 'muted small' }, all.length ? 'No spec matches the filters.' : 'No spec yet.'));
+  c1.append(doneOpenLegend());
+
+  /* chart 2: how far the specs are — counted without the "Has" filter, which this chart sets */
+  var keep = pf.stage; pf.stage = '';
+  var pool = progressSelection(s); pf.stage = keep;
+  var c2 = h('div', { class: 'pg-chart' }, h('h3', {}, 'Pipeline reach'), h('div', { class: 'sub' }, 'Specs that have each artifact. Click a bar to filter by it.'));
+  ARTIFACTS.forEach(function (a) {
+    var have = pool.filter(function (g) { return g.row.files[a] != null; });
+    var names = have.map(function (g) { return label(g.row); });
+    var tip = a + '.md: ' + count(have.length, 'spec') + ' of ' + pool.length + (names.length ? '\n' + names.join('\n') : '');
+    var rowEl = withTip(h('div', { class: 'pg-row click' + (pf.stage === a ? ' on' : ''), role: 'button', tabindex: '0', 'aria-pressed': pf.stage === a ? 'true' : 'false' },
+      h('span', { class: 'name' }, a),
+      hbar(have.length, 0, pool.length),
+      h('span', { class: 'val' }, have.length + '/' + pool.length)), tip);
+    var toggle = function () { pf.stage = pf.stage === a ? '' : a; tipHide(); redraw(); };
+    rowEl.addEventListener('click', toggle);
+    rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    c2.append(rowEl);
+  });
+
+  /* chart 3: tasks by wave */
+  var waves = {}, order = [];
+  tasks.forEach(function (t) {
+    var w = t.wave || '—';
+    if (!waves[w]) { waves[w] = { done: 0, open: 0 }; order.push(w); }
+    waves[w][t.done ? 'done' : 'open']++;
+  });
+  order.sort(function (a, b) { return (a === '—') - (b === '—') || (parseFloat(a) - parseFloat(b)) || a.localeCompare(b); });
+  var maxWave = Math.max.apply(null, [0].concat(order.map(function (w) { return waves[w].done + waves[w].open; })));
+  var c3 = h('div', { class: 'pg-chart' }, h('h3', {}, 'Tasks by wave'), h('div', { class: 'sub' }, 'A wave is a set of tasks that can run together. Summed over the specs shown.'));
+  order.forEach(function (w) {
+    var v = waves[w], name = w === '—' ? 'no wave' : 'Wave ' + w;
+    c3.append(withTip(h('div', { class: 'pg-row', tabindex: '0' },
+      h('span', { class: 'name' }, name), hbar(v.done, v.open, maxWave),
+      h('span', { class: 'val' }, v.done + '/' + (v.done + v.open))), name + '\n' + v.done + ' done, ' + v.open + ' open'));
+  });
+  if (!order.length) c3.append(h('p', { class: 'muted small' }, 'No task in the current selection.'));
+  else c3.append(doneOpenLegend());
+
+  /* every spec and its tasks: the same data as a list, and where a task is ticked */
+  var groups = sel.map(function (g) {
+    var row = g.row, d = g.tasks.filter(function (t) { return t.done; }).length;
+    var box = h('div', { class: 'pg-group' },
+      h('header', {},
+        h('h3', {}, h('a', { href: '#' + row.folder }, h('span', { class: 'num mono' }, row.num), row.name)),
+        statusBadge(row.status), pipeline(row),
+        h('span', { class: 'right' }, row.taskList ? d + ' of ' + g.tasks.length + ' done' + (g.tasks.length !== row.taskList.length ? ' · ' + g.tasks.length + ' of ' + row.taskList.length + ' shown' : '') : 'no task list yet')));
+    if (!row.taskList) return box;
+    if (!g.tasks.length) { box.append(h('div', { class: 'empty' }, 'No task of this spec matches the filters.')); return box; }
+    var src = row.files.tasks, marks = taskMarks(src), path = row.folder + '/tasks.md';
+    box.append(h('ul', {}, g.tasks.map(function (t) {
+      var cb = h('input', { type: 'checkbox', checked: t.done, disabled: !canEdit, 'aria-label': 'Task ' + (t.num || t.i + 1) + ' done' });
+      cb.addEventListener('change', function () {
+        cb.disabled = true;
+        var next = src.slice(0, marks[t.i].at) + (cb.checked ? 'x' : ' ') + src.slice(marks[t.i].at + 1);
+        saveText(path, next).then(refresh, function (err) { window.alert(err.message); return refresh(); });
+      });
+      var chips = h('span', { class: 'chips' });
+      if (t.wave) chips.append(h('span', { class: 'chip' }, 'wave ' + t.wave));
+      if (t.parallel) chips.append(h('span', { class: 'chip', title: 'Can run in the same wave as other [P] tasks' }, '[P]'));
+      t.reqs.forEach(function (id) { chips.append(h('span', { class: 'chip' }, id)); });
+      return h('li', { class: t.done ? 'done' : null }, cb, h('span', { class: 'n' }, t.num), h('span', { class: 't', html: mdInline(t.title) }), chips);
+    })));
+    return box;
+  });
+
+  show.apply(null, [filters, tiles, h('div', { class: 'pg-charts' }, c1, c2, c3),
+    h('h2', { class: 'section' }, 'Specs and tasks' + (active ? ' — filtered' : ''))]
+    .concat(groups.length ? groups : [h('p', { class: 'muted' }, all.length ? 'No spec matches the filters.' : 'No spec yet. /sdd-specify writes the first one.')])
+    .concat(canEdit ? [] : [h('p', { class: 'muted small', style: 'margin-top:12px' }, 'Read-only: start the page with "' + SERVE_COMMAND + '" to tick tasks here.')]));
+}
+
+/* ---------- spec detail ---------- */
+
+function renderRequirements(row) {
+  var parsed = parseRequirements(row.files.spec), base = row.folder + '/';
+  var body = function (src) { return rendered(mdBlock(src), base); };
+  var out = h('div', {});
+  out.append(h('div', { class: 'req-head' }, h('span', {}, 'Id'), h('span', {}, 'Requirement'), h('span', {}, 'Acceptance criterion')));
+  parsed.reqs.forEach(function (r) {
+    var crit = h('div', {});
+    crit.append(h('span', { class: 'col-label' }, 'Acceptance'));
+    if (!r.criteria.length) crit.append(h('span', { class: 'none' }, 'No acceptance criterion names ' + r.id));
+    r.criteria.forEach(function (c) {
+      crit.append(h('div', { class: 'crit' }, c.ids.length > 1 ? h('span', { class: 'shared' }, 'Shared: ' + c.label) : null, body(c.body)));
+    });
+    out.append(h('div', { class: 'req', id: 'req-' + r.id }, h('div', { class: 'id mono' }, r.id), h('div', {}, body(r.body)), crit));
+  });
+  if (parsed.loose.length) {
+    out.append(h('h3', { class: 'section' }, 'Criteria that match no requirement'));
+    parsed.loose.forEach(function (c) {
+      out.append(h('div', { class: 'req' }, h('div', { class: 'id mono' }, c.label || '—'), h('div', { class: 'muted' }, '—'), h('div', {}, body(c.body))));
+    });
+  }
+  return out;
+}
+
+function renderSpec(s, row, tab, sub) {
+  var hasReqs = row.files.spec != null && parseRequirements(row.files.spec).reqs.length > 0;
+  var tabs = h('nav', { class: 'tabs', 'aria-label': 'Artifacts' });
+  ARTIFACTS.forEach(function (name) {
+    var count = name === 'tasks' && row.tasks && row.tasks.total ? h('span', { class: 'count' }, row.tasks.done + '/' + row.tasks.total) : null;
+    if (row.files[name] != null) tabs.append(h('a', { class: 'tab' + (name === tab ? ' active' : ''), href: '#' + row.folder + '/' + name, 'aria-current': name === tab ? 'page' : null }, name, count));
+    else tabs.append(h('span', { class: 'tab disabled' + (name === tab ? ' active' : ''), 'aria-disabled': 'true', title: row.errors[name] || name + '.md not there yet' }, name));
+  });
+
+  var panel = h('div', { class: 'tabpanel' });
+  if (row.errors[tab]) panel.append(h('div', { class: 'msg error' }, 'Could not read ' + row.folder + '/' + tab + '.md: ' + row.errors[tab]));
+  else if (row.files[tab] == null) panel.append(h('p', { class: 'muted' }, row.folder + '/' + tab + '.md does not exist yet.'));
+  else if (editing && editing.path === row.folder + '/' + tab + '.md') panel.append(renderEditor());
+  else {
+    panel.append(h('div', { class: 'editbar' }, editButton(row.folder + '/' + tab + '.md', row.files[tab])));
+    if (tab === 'spec' && hasReqs) {
+      panel.append(h('div', { class: 'seg' },
+        h('a', { href: '#' + row.folder + '/spec', class: sub ? null : 'active' }, 'Document'),
+        h('a', { href: '#' + row.folder + '/spec/requirements', class: sub ? 'active' : null }, 'Requirements')), h('br'));
+    }
+    if (tab === 'tasks') panel.append(progress(row.tasks, true));
+    var mine = row.markers.filter(function (mk) { return mk.file === tab; });
+    if (mine.length) panel.append(h('div', { class: 'msg', style: 'background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text)' },
+      mine.length + ' unresolved clarification marker' + (mine.length === 1 ? '' : 's') + ' in this file (line ' + mine.map(function (mk) { return mk.line; }).join(', ') + ').'));
+    var doc = tab === 'spec' && sub && hasReqs ? renderRequirements(row) : rendered(mdBlock(row.files[tab]), row.folder + '/');
+    if (tab === 'tasks') liveTasks(doc, row.folder + '/tasks.md', row.files[tab]);
+    panel.append(doc);
+  }
+
+  show(
+    h('a', { class: 'back', href: '#' }, '← All specs'),
+    h('div', { class: 'spec-head' },
+      h('h2', {}, h('span', { class: 'num mono' }, row.num), row.name),
+      h('div', { class: 'meta' }, statusBadge(row.status),
+        h('span', {}, 'Open questions: ' + (row.open || '—')),
+        h('span', { class: 'mono' }, row.folder + '/')),
+      row.requires ? enhance(h('p', { class: 'requires', html: mdInline(row.requires) }), '') : null),
+    tabs, panel);
+}
+
+/* ---------- routing ---------- */
+
+function route() {
+  if (!state) return;
+  var raw = location.hash.replace(/^#\/?/, ''), parts;
+  try { raw = decodeURIComponent(raw); } catch (e) { /* keep raw */ }
+  parts = raw.split('/').filter(Boolean);
+  document.title = state.title || 'Specs';
+  tipHide();
+  document.getElementById('nav-index').className = parts[0] === 'progress' ? '' : 'active';
+  document.getElementById('nav-progress').className = parts[0] === 'progress' ? 'active' : '';
+  if (!parts.length) { renderOverview(state); return; }
+  if (parts[0] === 'progress' && !state.byFolder.progress) {
+    document.title = 'Progress — ' + (state.title || 'Specs');
+    renderProgress(state); return;
+  }
+  var row = state.byFolder[parts[0]];
+  if (!row) {
+    show(h('a', { class: 'back', href: '#' }, '← All specs'), h('div', { class: 'msg' }, 'The index has no spec in a folder named "' + parts[0] + '".'));
+    return;
+  }
+  var tab = ARTIFACTS.indexOf(parts[1]) !== -1 ? parts[1] : ARTIFACTS[0];
+  document.title = label(row) + ' · ' + tab + ' — ' + (state.title || 'Specs');
+  renderSpec(state, row, tab, tab === 'spec' && parts[2] === 'requirements');
+}
+
+function refresh() {
+  var btn = document.getElementById('reload'), stamp = document.getElementById('loaded');
+  btn.disabled = true; stamp.textContent = 'Loading…';
+  return load().then(function (s) {
+    state = s;
+    document.getElementById('title').textContent = s.title || 'Specs';
+    stamp.textContent = 'Read ' + s.loadedAt.toLocaleTimeString();
+    route();
+  }).catch(function (err) {
+    stamp.textContent = '';
+    show(h('div', { class: 'msg error' }, h('strong', {}, 'Could not load the specs. '), err && err.message ? err.message : String(err)));
+  }).then(function () { btn.disabled = false; });
+}
+
+function boot() {
+  if (location.protocol === 'file:') {
+    document.getElementById('reload').hidden = true;
+    show(h('div', { class: 'msg' },
+      h('strong', {}, 'This page has to be served over HTTP.'),
+      h('p', {}, 'It reads the markdown files beside it when you open it, and a browser will not let a page opened straight from disk do that. In a terminal, at the root of the repository, run:'),
+      h('pre', {}, SERVE_COMMAND),
+      h('p', { style: 'margin-bottom:0' }, 'then open ', h('a', { href: SERVE_URL }, SERVE_URL), '.')));
+    return;
+  }
+  if (!window.marked || !window.DOMPurify) {
+    show(h('div', { class: 'msg error' }, h('strong', {}, 'The markdown libraries did not load. '),
+      'This page fetches marked and DOMPurify from cdnjs.cloudflare.com; check the network connection and reload.'));
+    return;
+  }
+  marked.use({ gfm: true, breaks: false });
+  var shownHash = location.hash, undoing = false;
+  window.addEventListener('hashchange', function () {
+    if (undoing) { undoing = false; return; }
+    if (isDirty() && !window.confirm('Discard your unsaved changes to ' + editing.path + '?')) {
+      undoing = true; location.hash = shownHash; return;
+    }
+    editing = null; shownHash = location.hash;
+    route(); window.scrollTo(0, 0);
+  });
+  window.addEventListener('beforeunload', function (e) { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+  document.getElementById('reload').addEventListener('click', function () {
+    if (isDirty() && !window.confirm('Reloading discards your unsaved changes to ' + editing.path + '. Continue?')) return;
+    editing = null; refresh();
+  });
+  // Only serve.py answers this; under a plain static server the page stays read-only.
+  fetch('__edit', { cache: 'no-store' }).then(function (res) { return res.ok ? res.json() : null; })
+    .then(function (j) { canEdit = !!(j && j.edit); }, function () { canEdit = false; })
+    .then(function () {
+      var mode = document.getElementById('mode');
+      mode.textContent = canEdit ? 'Editing on' : 'Read-only';
+      mode.title = canEdit ? 'Saves write straight to the markdown files' : 'Start the page with "' + SERVE_COMMAND + '" to edit';
+      refresh();
+    });
+}
+
+boot();
+})();
+</script>
+</body>
+</html>
