@@ -241,14 +241,12 @@ JOB_TEXT = {
         "🤖 Hi! What should I do in this chat? Reply with one word:\n"
         "- chores – household tasks and cleaning schedule\n"
         "- rentals – watch holiday rentals (prices and availability)\n"
-        "- expenses – split shared costs\n"
         "💡 chores english also sets the language right away."
     ),
     "de": (
         "🤖 Hallo! Wofür soll ich in diesem Chat da sein? Antworte mit einem Wort:\n"
         "- haushalt – Aufgaben und Putzplan\n"
         "- ferien – Ferienunterkünfte beobachten (Preise und Verfügbarkeit)\n"
-        "- ausgaben – gemeinsame Kosten teilen\n"
         "💡 Mit haushalt deutsch stellst du gleich auch die Sprache ein."
     ),
 }
@@ -279,27 +277,6 @@ _CHORE_ALIASES = {"chores", "chore", "haushalt", "aufgaben", "tasks", "household
 
 _RENTAL_ALIASES = {"rentals", "rental", "mieten", "mietobjekte", "houses", "ferien", "urlaub"}
 
-_EXPENSE_ALIASES = {
-
-    "expenses",
-
-    "expense",
-
-    "ausgaben",
-
-    "kosten",
-
-    "splitwise",
-
-    "tricount",
-
-    "rechnung",
-
-    "rechnungen",
-
-    "kosten teilen",
-
-}
 
 _LANGUAGE_SUFFIXES: tuple[tuple[str, str], ...] = (
 
@@ -321,6 +298,11 @@ _LANGUAGE_SUFFIXES: tuple[tuple[str, str], ...] = (
 
 
 
+# Jobs a chat can pick. "expenses" is deprecated (spec 001 FR12): chats that already have it keep
+# it, but no chat can choose it any more.
+PICKABLE_JOBS: tuple[Job, ...] = ("chores", "rentals")
+
+
 def _parse_job_token(token: str) -> Job | None:
 
     if token in _CHORE_ALIASES:
@@ -330,10 +312,6 @@ def _parse_job_token(token: str) -> Job | None:
     if token in _RENTAL_ALIASES:
 
         return "rentals"
-
-    if token in _EXPENSE_ALIASES:
-
-        return "expenses"
 
     return None
 

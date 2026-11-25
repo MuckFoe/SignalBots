@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 from group_router import (
+    PICKABLE_JOBS,
     GroupRouter,
     error_text,
     guess_language,
@@ -21,6 +22,8 @@ from group_router import (
     parse_job_and_language,
 )
 from identity import IdentityStore
+import job_switch
+from job_switch import SwitchStore
 import migrations
 from migrations import MigrationStore
 from signal_client import SignalClient
@@ -46,6 +49,7 @@ if not SIGNAL_BOT_NUMBER:
 
 router = GroupRouter(DATABASE_PATH, CHORE_BOT_URL, RENTAL_BOT_URL, EXPENSE_BOT_URL)
 migration_store = MigrationStore(DATABASE_PATH)
+switch_store = SwitchStore(DATABASE_PATH)
 signal = SignalClient(SIGNAL_API_URL, SIGNAL_BOT_NUMBER)
 whatsapp = WhatsAppClient(WHATSAPP_API_URL, WHATSAPP_API_KEY)
 identity = IdentityStore(DATABASE_PATH, whatsapp.phone_for_lid)
@@ -319,6 +323,58 @@ def _claim_identity(scope_id: str, sender: str, name: str) -> Optional[str]:
     return migrations.text(language, "claim_ok", name=match["display_name"])
 
 
+def _handle_job_switch(scope_id: str, sender: str, text: str, group_id: Optional[str], job: str) -> Optional[str | list[str]]:
+    """admin switch bot and its answers (spec 001 FR13). None: an ordinary message for the bot."""
+    pending = switch_store.get(scope_id, sender)
+    if pending is not None:
+        return _continue_job_switch(pending, scope_id, sender, text, group_id)
+    if not job_switch.is_start(text):
+        return None
+    info = _call_bot(job, "/internal/scope", {"scope_id": scope_id, "sender": sender})
+    language = info.get("language") or job_switch.start_language(text)
+    if group_id and not info.get("is_admin"):
+        return job_switch.text(language, "not_admin")
+    options = [candidate for candidate in PICKABLE_JOBS if candidate != job]
+    if not options:
+        return job_switch.text(language, "nothing_else")
+    switch_store.start(scope_id, sender, job, language)
+    return job_switch.pick_text(language, job, options)
+
+
+def _continue_job_switch(pending, scope_id: str, sender: str, text: str, group_id: Optional[str]) -> Optional[str | list[str]]:
+    language, old_job = pending["language"], pending["old_job"]
+    old_name = job_switch.job_name(language, old_job)
+    decision = job_switch.answer(text)
+    if pending["new_job"] is None:
+        picked, _ = parse_job_and_language(text)
+        if decision is False or picked == old_job:
+            switch_store.clear(scope_id)
+            return job_switch.text(language, "cancelled", old=old_name)
+        if picked is None:
+            switch_store.clear(scope_id)  # not an answer to the question: an ordinary message
+            return None
+        switch_store.choose(scope_id, picked)
+        return job_switch.text(language, "confirm", old=old_name, new=job_switch.job_name(language, picked))
+    switch_store.clear(scope_id)
+    if decision is None:
+        return None
+    if not decision:
+        return job_switch.text(language, "cancelled", old=old_name)
+    new_job = pending["new_job"]
+    router.set_job(scope_id, new_job)
+    replies = [job_switch.text(language, "done", new=job_switch.job_name(language, new_job))]
+    try:
+        # A bot this chat has not used before gets the language right away (its setup, which also
+        # makes the sender its first admin). One it used before still has its settings and data.
+        if not _call_bot(new_job, "/internal/scope", {"scope_id": scope_id, "sender": sender}).get("has_admins"):
+            result = router.forward(new_job, scope_id, sender, language_command_for(language), group_id)
+            reply = result.get("reply")
+            replies.extend(reply if isinstance(reply, list) else [reply] if reply else [])
+    except requests.RequestException:
+        app.logger.exception("Setting up %s in %s after a switch failed", new_job, scope_id)
+    return replies
+
+
 def _merge_aliases(job: str, scope_id: str, member: str) -> None:
     # Rows stored under another id of the same number (an older "@c.us", "@lid"
     # or Signal UUID) fold into the number once per scope.
@@ -392,6 +448,12 @@ def _process_incoming(payload: Optional[Dict[str, Any]]) -> tuple[dict, int]:
                 return jsonify({"status": "processed"}), 200
         if migration_store.is_moved(scope_id):
             return {"status": "ignored_moved"}, 200
+
+        if job is not None:
+            switch_reply = _handle_job_switch(scope_id, member, incoming_text, incoming_group_id, job)
+            if switch_reply is not None:
+                _queue_signal_replies(incoming_group_id, sender, switch_reply)
+                return jsonify({"status": "processed"}), 200
 
         if job is None:
             picked, picked_language = parse_job_and_language(incoming_text)
