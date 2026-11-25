@@ -62,6 +62,15 @@ The chore and rental bots changed; expense groups get no message.
 - `deploy_stack.py` uploads whole bot directories (minus tests, caches,
   `.env`, databases), backs up chores/rentals/router/expenses databases and
   stops if a backup fails; `python deploy_stack.py files` lists the upload.
+- Deploy order: build while the old containers keep running, then
+  `docker compose up -d`, which only recreates changed containers. Before
+  this, all containers, including signal-api and whatsapp-api, were removed
+  before the build, so the bots were offline for the whole build (about 7 min
+  this time, mostly the rental image's Chromium layer).
+- Rule (`CLAUDE.md`): every deployed change is announced to every chat of the
+  changed bot. `broadcast_changelog.py` now also reaches direct chats (none
+  exist yet), and it follows the router's current job, so a chat that was
+  switched or moved only hears about the bot it uses now.
 
 ## 2026-11-12 – Chore bot: cold-start notice
 

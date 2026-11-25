@@ -38,15 +38,18 @@ device), so use a number you can afford to lose.
 
 ## Release checklist
 
-Every release that changes something a group can notice:
+Every deployed change a user can notice is announced to every chat that uses
+the changed bot (rule in `CLAUDE.md`):
 
 1. Add a `## <date> – <title>` entry at the top of `CHANGELOG.md`, with a
    ```` ```<bot>-de``` ```` / ```` ```<bot>-en``` ```` block for each bot that
    changed (`chores`, `rentals`, `expenses`).
-2. Deploy. The live stack runs from `/home/signalbot/bots` on the VM.
+2. Commit, push, deploy: `python deploy_stack.py`, then
+   `python deploy_stack.py verify`. The live stack runs from
+   `/home/signalbot/bots` on the VM.
 3. Announce it: `python broadcast_changelog.py` (dry run), then
-   `python broadcast_changelog.py --send`. Only the newest entry is sent, and
-   each group only gets its own bot's block.
+   `python broadcast_changelog.py --send`. Only the newest entry is sent. Every
+   set-up group and every direct chat gets its own bot's block in its language.
 
 ## Data (separate, not merged)
 
