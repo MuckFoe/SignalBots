@@ -1,5 +1,68 @@
 # Changelog
 
+## 2026-11-24 – More admins, quieter bots, switching bots
+
+### For the groups
+
+The chore and rental bots changed; expense groups get no message.
+
+```chores-de
+📢 Neuigkeiten vom Haushalts-Bot
+
+🔑 Admins können jetzt weitere Admins ernennen: admin hinzufügen <Name> · admin entfernen <Name> · admin liste (der letzte Admin bleibt immer). Nur Admins können einen Gruppenumzug starten.
+
+🤫 Wacht die KI gerade erst auf, kündigt der Bot das in der Gruppe nicht mehr an – die Antwort kommt einfach etwas später, und bei normalen Unterhaltungen bleibt er ganz still.
+
+🔄 Ein Admin kann diesen Chat mit admin bot wechseln auf den Ferienunterkunft-Bot umstellen. Eure Aufgaben bleiben gespeichert, zurückwechseln geht jederzeit.
+```
+
+```chores-en
+📢 What's new in the chore bot
+
+🔑 Admins can now make others admin: admin add <name> · admin remove <name> · admin list (the last admin always stays). Only admins can start a group move.
+
+🤫 When the AI is just waking up, the bot no longer announces it in the group. The answer simply comes a bit later, and during normal conversation it stays completely quiet.
+
+🔄 An admin can switch this chat to the rental watcher with admin switch bot. Your chores stay saved, and you can switch back anytime.
+```
+
+```rentals-de
+📢 Neuigkeiten vom Ferienunterkunft-Bot
+
+🤫 Der Bot bleibt jetzt still, wenn in der Gruppe einfach geschrieben wird – die Befehlsliste gibt es mit hilfe.
+
+🔍 jetzt prüfen prüft nur noch eure eigenen Unterkünfte und ist dadurch schneller.
+
+🌐 Mit webseite hinzufügen eingetragene Seiten gelten nur für eure Gruppe und werden wie alle anderen Seiten gelesen, notfalls mit unserem lokalen KI-Modell.
+```
+
+```rentals-en
+📢 What's new in the rental watcher
+
+🤫 The bot now stays quiet while people chat in the group. For the list of commands, send: help
+
+🔍 check now only checks your own rentals, so it's faster.
+
+🌐 Websites added with add website now belong to your group only and are read like every other page, with our local AI model if needed.
+```
+
+### Under the hood
+
+- Specs for the whole stack in `specs/` (001–009); every open question
+  answered and built.
+- Router: `expenses` no longer offered in the job picker (existing expense
+  chats keep working); `admin switch bot` / `admin bot wechseln`
+  (`HouseBotRouter/job_switch.py`, table `job_switches`).
+- Chore bot: direct-chat reminders and vacation notices go to that chat only
+  (were sent to every stored contact); `admin add/remove/list`; `groups`
+  command removed; cold-start notice only in direct chats.
+- Rental bot: manual `check` reads only the asking group; unknown text in
+  groups gets no reply; custom websites are per group and use the generic
+  JSON-LD + LLM path instead of the HomeToGo adapter.
+- `deploy_stack.py` uploads whole bot directories (minus tests, caches,
+  `.env`, databases), backs up chores/rentals/router/expenses databases and
+  stops if a backup fails; `python deploy_stack.py files` lists the upload.
+
 ## 2026-11-12 – Chore bot: cold-start notice
 
 ### For the groups

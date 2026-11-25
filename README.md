@@ -13,7 +13,7 @@ that `bot-router` uses to talk to whichever bot a chat is assigned to.
 | `bot-router` | Receives webhooks, routes per group |
 | `chore-bot` | Household chore tracker |
 | `rental-bot` | Vacation rental price tracker |
-| `expense-bot` | Shared expenses (Splitwise/Tricount style) |
+| `expense-bot` | Shared expenses — **deprecated**: serves groups that already use it, not offered to new chats |
 
 ## Deploy
 
@@ -58,7 +58,10 @@ Every release that changes something a group can notice:
 
 Existing chore groups keep working: router detects them via chore-bot admins.
 
-New groups are asked: `chores`, `rentals`, or `expenses`.
+New groups are asked: `chores` or `rentals`. An admin can switch a chat to the
+other bot later with `admin switch bot` / `admin bot wechseln`.
+
+What each part does is specified in `specs/` (see `specs/README.md`).
 
 ## Projects
 
