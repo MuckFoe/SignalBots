@@ -607,7 +607,7 @@ def _try_start_quick_add(
     if not parts or not _looks_like_url(parts[0]):
         return _text(language, "invalid_url")
     url = normalize_url(parts[0])
-    adapter = registry.detect(url)
+    adapter = registry.detect(url, scope_id)
     if adapter is None:
         return _text(language, "unsupported_site")
     suggested = hostname(url)[:80]
@@ -697,7 +697,7 @@ def _handle_pending_add(
         if not _looks_like_url(text):
             return _text(language, "invalid_url")
         url = normalize_url(text)
-        adapter = registry.detect(url)
+        adapter = registry.detect(url, scope_id)
         if adapter is None:
             return _text(language, "unsupported_site")
         suggested = hostname(url)[:80]
@@ -850,7 +850,8 @@ def handle_command(
         storage.set_bot_id(scope_id, runtime_bot_id())
 
     if not text:
-        return _text(language, "help")
+        # A photo or sticker in a group is people talking, not a command (spec 007 FR13).
+        return "" if is_group else _text(language, "help")
 
     if is_group and not setup_complete:
         language_request = _language_from_command(text)
@@ -986,7 +987,7 @@ def handle_command(
         lines = [_text(language, "websites_header")]
         for adapter_id, display_name in registry.list_adapters():
             lines.append(_text(language, "websites_line", adapter=adapter_id, name=display_name))
-        for host_row in storage.list_custom_hosts(scope_id):
+        for host_row in storage.list_custom_hosts(scope_id):  # this group's own websites only
             lines.append(_text(language, "websites_line", adapter=host_row["adapter_id"], name=host_row["host_pattern"]))
         return "\n".join(lines)
 
@@ -1002,7 +1003,7 @@ def handle_command(
         host = website_payload.lower().removeprefix("https://").removeprefix("http://").removeprefix("www.").split("/")[0]
         if not host or " " in host:
             return _text(language, "website_usage")
-        adapter_id = registry.register_host(host)
+        adapter_id = registry.register_host(host, scope_id=scope_id)
         storage.add_custom_host(scope_id, host, adapter_id)
         return _text(language, "website_added", host=host)
 
@@ -1019,13 +1020,15 @@ def handle_command(
         return _text(language, "drive_set", name=drive_payload)
 
     if command_lowered in {"poll", "check", "prüfen", "jetzt prüfen"} or (admin_seen and command_lowered in {"poll", "prüfen"}):
-        outcomes = poller.poll_all()
+        outcomes = poller.poll_all(scope_id)
         change_messages = []
         for row, did_change, result in outcomes:
-            if did_change and row["scope_id"] == scope_id:
+            if did_change:
                 change_messages.append(format_change_message(storage, scope_id, row["label"], result))
         if change_messages:
             return change_messages
         return _with_usage_tip(storage, scope_id, sender, language, "poll", _text(language, "poll_no_changes"))
 
+    if is_group:
+        return ""  # unknown text in a group is chatter: stay quiet (spec 007 FR13)
     return _text(language, "unknown", help=_text(language, "help"))

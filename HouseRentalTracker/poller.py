@@ -31,6 +31,7 @@ class Poller:
             check_out,
             row["guests"],
             adapter_id=row["adapter_id"],
+            scope_id=row["scope_id"],
         )
         if result.fallback_failed:
             keep_last_known(result, row)
@@ -38,15 +39,18 @@ class Poller:
         changed = self.storage.apply_poll_result(row["id"], result, drive_minutes, drive_km)
         return changed, result
 
-    def poll_all(self) -> list[tuple[object, bool, ScrapeResult]]:
+    def poll_all(self, scope_id: str | None = None) -> list[tuple[object, bool, ScrapeResult]]:
+        """Every group's rentals, or only scope_id's (a manual check must not use up other groups' news)."""
         outcomes = []
-        for row in self.storage.list_all_active_listings():
+        rows = self.storage.list_all_active_listings() if scope_id is None else self.storage.list_listings(scope_id)
+        for row in rows:
             try:
                 changed, result = self.poll_listing_row(row)
                 outcomes.append((row, changed, result))
             except Exception:
                 logger.exception("Failed polling listing %s", row["label"])
-        self.storage.set_poll_state("last_poll_at", datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+        if scope_id is None:
+            self.storage.set_poll_state("last_poll_at", datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
         return outcomes
 
     def initial_scrape(
@@ -58,7 +62,7 @@ class Poller:
         check_out: date,
         guests: int,
     ) -> tuple[ScrapeResult, int | None, float | None]:
-        result = self.registry.scrape(url, check_in, check_out, guests, adapter_id=adapter_id)
+        result = self.registry.scrape(url, check_in, check_out, guests, adapter_id=adapter_id, scope_id=scope_id)
         drive_minutes, drive_km = self._drive_for_scope(scope_id, result, None)
         return result, drive_minutes, drive_km
 
@@ -84,4 +88,4 @@ def keep_last_known(result: ScrapeResult, row) -> None:
 
 def load_custom_hosts(storage: Storage, registry: ScraperRegistry) -> None:
     for row in storage.list_all_custom_hosts():
-        registry.register_host(row["host_pattern"], row["adapter_id"])
+        registry.register_host(row["host_pattern"], row["adapter_id"], scope_id=row["scope_id"])

@@ -354,11 +354,21 @@ class JsonLdAdapter:
 
 
 class CustomHostAdapter:
-    def __init__(self, host_pattern: str, adapter_id: str, display_name: str, delegate: ScraperAdapter) -> None:
+    """A website one group added with "add website": read like any page (JSON-LD, then the LLM)."""
+
+    def __init__(
+        self,
+        host_pattern: str,
+        adapter_id: str,
+        display_name: str,
+        delegate: ScraperAdapter,
+        scope_id: str = "",
+    ) -> None:
         self.host_pattern = host_pattern.lower()
         self.adapter_id = adapter_id
         self.display_name = display_name
         self.delegate = delegate
+        self.scope_id = scope_id
 
     def matches(self, url: str) -> bool:
         host = hostname(url)
@@ -373,32 +383,39 @@ class ScraperRegistry:
         self._builtin = [HomeToGoAdapter(), JsonLdAdapter()]
         self._custom: list[CustomHostAdapter] = []
 
-    def register_host(self, host_pattern: str, adapter_id: str | None = None) -> str:
+    def register_host(self, host_pattern: str, adapter_id: str | None = None, scope_id: str = "") -> str:
+        """Known only to scope_id's group. Read with the generic adapter, so the LLM fills the gaps."""
         normalized = host_pattern.lower().removeprefix("www.")
         adapter_key = adapter_id or f"host:{normalized}"
-        self._custom = [item for item in self._custom if item.host_pattern != normalized]
+        self._custom = [
+            item for item in self._custom if not (item.host_pattern == normalized and item.scope_id == scope_id)
+        ]
         self._custom.append(
             CustomHostAdapter(
                 host_pattern=normalized,
                 adapter_id=adapter_key,
-                display_name=f"Custom host {normalized}",
-                delegate=HomeToGoAdapter(),
+                display_name=f"Website {normalized}",
+                delegate=JsonLdAdapter(),
+                scope_id=scope_id,
             )
         )
         return adapter_key
 
-    def list_adapters(self) -> list[tuple[str, str]]:
+    def _candidates(self, scope_id: str) -> list:
+        return [item for item in self._custom if item.scope_id == scope_id] + self._builtin
+
+    def list_adapters(self, scope_id: str = "") -> list[tuple[str, str]]:
         seen = set()
         adapters: list[tuple[str, str]] = []
-        for adapter in self._custom + self._builtin:
+        for adapter in self._candidates(scope_id):
             if adapter.adapter_id in seen:
                 continue
             seen.add(adapter.adapter_id)
             adapters.append((adapter.adapter_id, adapter.display_name))
         return adapters
 
-    def detect(self, url: str) -> ScraperAdapter | None:
-        for adapter in self._custom + self._builtin:
+    def detect(self, url: str, scope_id: str = "") -> ScraperAdapter | None:
+        for adapter in self._candidates(scope_id):
             if adapter.matches(url):
                 return adapter
         return None
@@ -410,15 +427,16 @@ class ScraperRegistry:
         check_out: date,
         guests: int,
         adapter_id: str | None = None,
+        scope_id: str = "",
     ) -> ScrapeResult:
         adapter = None
         if adapter_id:
-            for candidate in self._custom + self._builtin:
+            for candidate in self._candidates(scope_id):
                 if candidate.adapter_id == adapter_id:
                     adapter = candidate
                     break
         if adapter is None:
-            adapter = self.detect(url)
+            adapter = self.detect(url, scope_id)
         if adapter is None:
             return ScrapeResult(error="No scraper available for this URL.")
         result = adapter.scrape(url, check_in, check_out, guests)
