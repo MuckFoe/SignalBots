@@ -36,9 +36,6 @@ whatsapp = WhatsAppClient(WHATSAPP_API_URL, WHATSAPP_API_KEY)
 outbound_messages: queue.Queue[Dict[str, str]] = queue.Queue()
 # Messages that need the LLM while it is cold: answered from here once the model has loaded.
 deferred_messages: queue.Queue[Dict[str, Optional[str]]] = queue.Queue()
-# Direct chats told about the current cold start. Groups are never told up front: most cold
-# group messages turn out to be chatter, and a notice with no answer after it confuses people.
-warming_notified: set[str] = set()
 
 
 def _queue_signal_reply(group_id: Optional[str], recipient: str, message: str) -> None:
@@ -79,7 +76,6 @@ def _run_deferred_loop() -> None:
         _queue_reply(job["group_id"], job["sender"], reply)
         if deferred_messages.empty():
             llm_assist.warming.clear()
-            warming_notified.clear()
         deferred_messages.task_done()
 
 
@@ -230,13 +226,11 @@ def internal_handle() -> tuple[dict, int]:
             group_id=group_id,
         )
     except llm_assist.ModelCold:
+        first = not llm_assist.warming.is_set()
         llm_assist.warming.set()
         deferred_messages.put({"scope_id": scope_id, "sender": sender, "message": message, "group_id": group_id})
         app.logger.info("LLM cold, deferred a message in %s.", scope_id)
-        reply = ""
-        if not group_id and scope_id not in warming_notified:
-            warming_notified.add(scope_id)
-            reply = text_for(storage, scope_id, "llm_warming")
+        reply = text_for(storage, scope_id, "llm_warming") if first else ""
     except Exception as exc:
         app.logger.exception("Failed handling chore command: %s", exc)
         reply = text_for(storage, scope_id, "unexpected_error")

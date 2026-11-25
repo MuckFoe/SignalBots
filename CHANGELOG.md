@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-11-25 – Chore bot: cold-start notice is back
+
+### For the groups
+
+Only the chore bot changed; rental and expense groups get no message.
+
+```chores-de
+📢 Kleine Korrektur vom Haushalts-Bot
+
+⏳ Wacht die KI gerade erst auf, sagt der Bot wieder kurz Bescheid („Die KI startet gerade …“), auch hier in der Gruppe. Die Antwort kommt etwa eine halbe Minute später.
+```
+
+```chores-en
+📢 A small correction from the chore bot
+
+⏳ When the AI is just waking up, the bot tells you again ("The AI is starting up …"), here in the group too. The answer follows about half a minute later.
+```
+
+### Under the hood
+
+- Reverted the 2026-11-24 change that left out the cold-start notice in
+  groups: every chat again gets one `llm_warming` notice per cold start
+  (spec 006 FR9). The direct-chat reminder fix from the same commit stays.
+
 ## 2026-11-24 – More admins, quieter bots, switching bots
 
 ### For the groups

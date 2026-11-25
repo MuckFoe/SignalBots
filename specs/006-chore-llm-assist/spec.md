@@ -43,13 +43,10 @@ asks before changing anything. Group chatter gets no reply.
   were off.
 - **FR9** — Cold start. Before each call the bot asks Ollama (`/api/ps`)
   whether the model is loaded; a failed check counts as loaded. If it is not
-  loaded, or messages are already waiting for it, the message is queued. A
-  worker then runs it with `LLM_COLD_TIMEOUT_SECONDS` (default 120 s) and sends
-  the reply itself, as text only. No notice is sent to a
-  group, so chatter there still gets no reply at all. A direct chat, where
-  waiting with no answer is confusing, gets one "AI is starting up" notice
-  per cold start. (Built 2026-11-24. Before that every chat got the notice at
-  once.)
+  loaded, or messages are already waiting for it, the message is queued and the
+  chat gets one "AI is starting up" notice per cold start, in groups and in
+  direct chats. A worker then runs the message with `LLM_COLD_TIMEOUT_SECONDS`
+  (default 120 s) and sends the reply itself, as text only.
 - **FR10** — Every model call is logged to `llm_log` (scope, sender, text,
   context, raw output, outcome, latency) for the offline intent eval
   (`evals/`).
@@ -70,19 +67,18 @@ asks before changing anything. Group chatter gets no reply.
 - **FR7** — "haha nice" in a group gets no reply at all.
 - **FR8** — With the Mac mini off, "bad ist sauber" gets the same reply as with
   the assist off.
-- **FR9** — After the model has unloaded, "haha nice" in a group gets nothing,
-  and "bad ist sauber" in a group gets only the confirm question, about half a
-  minute later. In a direct chat the first free-text message gets the notice
-  and then the answer, and a second message during the load gets no second
-  notice.
+- **FR9** — The first free-text message after the model has unloaded gets the
+  warming notice and then the real answer, and a second message during the load
+  gets no second notice.
 - **FR10** — Each assisted message adds one `llm_log` row with its outcome.
 
 ## Open questions
 
-None. Decided 2026-11-24: the notice waits until the model has classified the
-message (FR9), so chatter no longer gets an orphan notice. In groups that means
-no notice at all. A real command sent during a cold start arrives about half a
-minute late, without warning.
+None. Decided 2026-11-25: every chat gets the cold-start notice (FR9). A change
+on 2026-11-24 that left it out in groups was reverted the next day. This means
+plain group chatter after an idle phase can still get the notice with no answer
+after it, because the model then classifies the message as chatter. That is
+accepted.
 
 `.env.example` still says `LLM_TIMEOUT_SECONDS=8`, while the code default and
 the deployed value are 20 s since 2026-11-11. The template needs updating;
