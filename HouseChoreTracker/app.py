@@ -36,6 +36,9 @@ whatsapp = WhatsAppClient(WHATSAPP_API_URL, WHATSAPP_API_KEY)
 outbound_messages: queue.Queue[Dict[str, str]] = queue.Queue()
 # Messages that need the LLM while it is cold: answered from here once the model has loaded.
 deferred_messages: queue.Queue[Dict[str, Optional[str]]] = queue.Queue()
+# Direct chats told about the current cold start. Groups are never told up front: most cold
+# group messages turn out to be chatter, and a notice with no answer after it confuses people.
+warming_notified: set[str] = set()
 
 
 def _queue_signal_reply(group_id: Optional[str], recipient: str, message: str) -> None:
@@ -76,6 +79,7 @@ def _run_deferred_loop() -> None:
         _queue_reply(job["group_id"], job["sender"], reply)
         if deferred_messages.empty():
             llm_assist.warming.clear()
+            warming_notified.clear()
         deferred_messages.task_done()
 
 
@@ -96,20 +100,23 @@ def _run_signal_send_loop() -> None:
             outbound_messages.task_done()
 
 
+def _send_to_scope(scope_id: str, message: str) -> None:
+    """A group scope goes to its group, a direct-chat scope only to that chat."""
+    if scope_id.startswith("group:"):
+        _queue_signal_reply(scope_id.replace("group:", "", 1), "", message)
+    elif scope_id.startswith("dm:"):
+        _queue_signal_reply(None, scope_id.replace("dm:", "", 1), message)
+    else:
+        app.logger.warning("Not sending to unknown scope %s.", scope_id)
+
+
 def _run_reminder_loop() -> None:
     while True:
         try:
             for event in storage.process_vacation_transitions():
                 scope_id = event["scope_id"]
-                message = format_vacation_event(storage, event)
-                if scope_id.startswith("group:"):
-                    group_id = scope_id.replace("group:", "", 1)
-                    _queue_signal_reply(group_id, "", message)
-                else:
-                    for number in storage.list_contacts():
-                        _queue_signal_reply(None, number, message)
+                _send_to_scope(scope_id, format_vacation_event(storage, event))
             due_rows = storage.due_reminders()
-            contacts = storage.list_contacts()
             for row in due_rows:
                 scope_id = row["scope_id"]
                 if storage.is_reminders_paused(scope_id):
@@ -124,12 +131,7 @@ def _run_reminder_loop() -> None:
                     row["name"],
                     requires_confirmation=row["requires_confirmation"] == 1,
                 )
-                if scope_id.startswith("group:"):
-                    group_id = scope_id.replace("group:", "", 1)
-                    _queue_signal_reply(group_id, "", reminder_text)
-                else:
-                    for number in contacts:
-                        _queue_signal_reply(None, number, reminder_text)
+                _send_to_scope(scope_id, reminder_text)
                 storage.mark_reminder_sent(row["id"])
             for group_id in storage.list_groups():
                 scope_id = f"group:{group_id}"
@@ -228,11 +230,13 @@ def internal_handle() -> tuple[dict, int]:
             group_id=group_id,
         )
     except llm_assist.ModelCold:
-        first = not llm_assist.warming.is_set()
         llm_assist.warming.set()
         deferred_messages.put({"scope_id": scope_id, "sender": sender, "message": message, "group_id": group_id})
         app.logger.info("LLM cold, deferred a message in %s.", scope_id)
-        reply = text_for(storage, scope_id, "llm_warming") if first else ""
+        reply = ""
+        if not group_id and scope_id not in warming_notified:
+            warming_notified.add(scope_id)
+            reply = text_for(storage, scope_id, "llm_warming")
     except Exception as exc:
         app.logger.exception("Failed handling chore command: %s", exc)
         reply = text_for(storage, scope_id, "unexpected_error")

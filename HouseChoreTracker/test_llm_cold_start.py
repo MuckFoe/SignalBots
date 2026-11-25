@@ -106,10 +106,10 @@ class AppDeferTests(unittest.TestCase):
         while not chore_app.deferred_messages.empty():
             worker_once()
 
-    def test_cold_message_gets_notice_then_answer(self) -> None:
+    def test_cold_group_message_gets_no_notice_only_the_answer(self) -> None:
         llm_assist.set_client(ColdFakeLlm(llm_output(intent="show", what="list")))
         first = self.post("was steht noch an?")
-        self.assertIn("Kaltstart", first["reply"])
+        self.assertEqual(first["reply"], "")
         second = self.post("und sonst so?")
         self.assertEqual(second["reply"], "")
         self.assertTrue(llm_assist.warming.is_set())
@@ -117,6 +117,29 @@ class AppDeferTests(unittest.TestCase):
         self.assertFalse(llm_assist.warming.is_set())
         self.assertEqual(len(self.sent), 2)
         self.assertTrue(all(args[0] == GROUP and args[1] == SENDER for args in self.sent))
+
+    def test_cold_group_chatter_stays_silent(self) -> None:
+        llm_assist.set_client(ColdFakeLlm(llm_output(kind="chatter")))
+        self.assertEqual(self.post("haha nice")["reply"], "")
+        self.drain()
+        self.assertEqual(self.sent, [])
+
+    def test_cold_direct_chat_gets_one_notice_then_answer(self) -> None:
+        llm_assist.set_client(ColdFakeLlm(llm_output(intent="show", what="list")))
+        dm_scope = f"dm:{SENDER}"
+        chore_app.storage.set_display_name(dm_scope, SENDER, "Mo")
+
+        def post_dm(message: str) -> dict:
+            body = {"scope_id": dm_scope, "sender": SENDER, "message": message, "group_id": None}
+            return self.http.post("/internal/handle", json=body).get_json()
+
+        self.assertIn("cold start", post_dm("what is left to do?")["reply"])
+        self.assertEqual(post_dm("and else?")["reply"], "")
+        self.drain()
+        self.assertEqual(len(self.sent), 2)
+        self.assertTrue(all(args[0] is None and args[1] == SENDER for args in self.sent))
+        self.assertIn("cold start", post_dm("still there?")["reply"])
+        self.drain()
 
     def test_parsed_commands_skip_the_llm(self) -> None:
         llm_assist.set_client(ColdFakeLlm(""))
