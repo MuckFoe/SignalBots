@@ -45,6 +45,7 @@ SLOT_NAMES = (
     "when",
     "duration",
     "what",
+    "member",
 )
 _BOOL_SLOTS = {"done_confirmation", "count_stats"}
 
@@ -81,7 +82,8 @@ Reply with exactly one JSON object and nothing else (no markdown, no explanation
 kind:
 - "action": the message asks the bot to do or show something listed below.
 - "unclear": the message is clearly meant for the bot, but you cannot tell what it wants.
-- "chatter": anything else (people talking, jokes, thanks, emojis, questions to other people). When in doubt between
+- "chatter": anything else (people talking, jokes, thanks, emojis, questions to other people, asking another
+  person to do something). When in doubt between
   chatter and anything else, choose chatter. A bare statement like "I cleaned the bathroom" counts as action
   mark_done only if a chore with that meaning exists.
 
@@ -92,7 +94,8 @@ Intents and their slots:
   -> schedule "none"). name, schedule, remind_time, done_confirmation
 - add_once: a new one-time task due on a specific day. name, schedule (when it is due), remind_time, count_stats,
   done_confirmation
-- mark_done: a chore was done. chore
+- mark_done: a chore was done. chore, member (only if the message says someone other than the sender did it,
+  or that it should be credited to someone else)
 - undo_done: take back the last "done" of a chore. chore
 - edit_chore: change a setting of an existing chore. chore, field, value
 - delete_chore: remove a chore. chore
@@ -106,6 +109,8 @@ Slot formats (use exactly these, the bot parses them literally):
   only drop articles and turn "zu"/"to" phrases into the base form ("den vermieter anzurufen" -> "Vermieter anrufen",
   "to water the plants" -> "Water the plants", "Fensterputzen" stays "Fensterputzen").
 - display_name: the name exactly as the sender wrote it.
+- member: copied exactly from the list of group members below (match it case-insensitively). Leave it out
+  when the sender did the chore themselves ("ich", "I", "wir", "we").
 - chore: must be copied exactly from the list of existing chores below. If no existing chore fits, use null.
 - schedule (recurring): "every day", "every 2 days", "every week", "every 2 weeks", "every month",
   "every 3 months", "every monday" ... "every sunday", or "none" for a task without any schedule.
@@ -133,6 +138,8 @@ confidence: how sure you are that kind and intent are right (0 to 1).
 Examples (existing chores: Bad putzen, Müll rausbringen):
 "bad ist sauber" -> {"kind":"action","intent":"mark_done","slots":{"chore":"Bad putzen"},"suggestions":[],"confidence":0.9}
 "I took the trash out" -> {"kind":"action","intent":"mark_done","slots":{"chore":"Müll rausbringen"},"suggestions":[],"confidence":0.85}
+"Anna hat das Bad geputzt" (group members: Anna, Max) -> {"kind":"action","intent":"mark_done","slots":{"chore":"Bad putzen","member":"Anna"},"suggestions":[],"confidence":0.9}
+"Müll ist raus, bitte Max gutschreiben" (group members: Anna, Max) -> {"kind":"action","intent":"mark_done","slots":{"chore":"Müll rausbringen","member":"Max"},"suggestions":[],"confidence":0.85}
 "Erinner uns jeden Montag um 8 ans Fensterputzen, jemand muss es bestätigen" ->
   {"kind":"action","intent":"add_chore","slots":{"name":"Fensterputzen","schedule":"every monday","remind_time":"08:00","done_confirmation":true},"suggestions":[],"confidence":0.9}
 "neue aufgabe staubsaugen alle 2 wochen" -> {"kind":"action","intent":"add_chore","slots":{"name":"Staubsaugen","schedule":"every 2 weeks"},"suggestions":[],"confidence":0.9}
@@ -289,12 +296,15 @@ def build_messages(
     chore_names: list[str],
     is_group: bool,
     dialogue: dict | None = None,
+    member_names: list[str] | None = None,
 ) -> list[dict]:
     chores = ", ".join(chore_names) if chore_names else "(none yet)"
+    members = ", ".join(member_names) if member_names else "(none known)"
     context = [
         f"Chat language setting: {'German' if language == 'de' else 'English'}.",
         f"Chat type: {'group chat' if is_group else 'direct message with the bot'}.",
         f"Existing chores: {chores}",
+        f"Group members: {members}",
     ]
     if dialogue:
         context.append(
@@ -367,11 +377,12 @@ def interpret(
     chore_names: list[str],
     is_group: bool,
     dialogue: dict | None = None,
+    member_names: list[str] | None = None,
 ) -> tuple[Interpretation | None, str, int]:
     """Returns (interpretation or None, raw output, latency in ms)."""
     started = time.monotonic()
     try:
-        raw = client.complete(build_messages(text, language, chore_names, is_group, dialogue))
+        raw = client.complete(build_messages(text, language, chore_names, is_group, dialogue, member_names))
     except ModelCold:
         raise
     except Exception as exc:

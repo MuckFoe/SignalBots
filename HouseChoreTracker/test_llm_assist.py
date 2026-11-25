@@ -272,6 +272,43 @@ class DoneAndUndoTests(LlmAssistTestCase):
         self.assertIn("Tipp: nächstes Mal einfach: erledigt Bad putzen", reply)
         self.assertEqual(self.done_count("Bad putzen"), 1)
 
+    def test_mark_done_for_another_member(self) -> None:
+        self.add_existing()
+        self.llm.answers["Anna hat das Bad geputzt"] = llm_output(intent="mark_done", chore="Bad putzen", member="anna")
+        self.assertIn("'Bad putzen' als erledigt von Anna markieren", self.send("Anna hat das Bad geputzt"))
+        self.assertEqual(self.done_count("Bad putzen"), 0)
+        reply = self.send("ja")
+        self.assertIn("von Anna", reply)
+        self.assertIn("erledigt Bad putzen für Anna", reply)
+        with self.storage._connect() as conn:
+            done_by = [row["sender"] for row in conn.execute("SELECT sender FROM chore_logs WHERE scope_id = ?", (SCOPE,))]
+        self.assertEqual(done_by, [OTHER])
+
+    def test_mark_done_without_a_name_credits_the_sender(self) -> None:
+        self.add_existing()
+        self.llm.answers["bad ist sauber"] = llm_output(intent="mark_done", chore="Bad putzen")
+        self.send("bad ist sauber")
+        self.send("ja")
+        with self.storage._connect() as conn:
+            done_by = [row["sender"] for row in conn.execute("SELECT sender FROM chore_logs WHERE scope_id = ?", (SCOPE,))]
+        self.assertEqual(done_by, [SENDER])
+
+    def test_mark_done_for_the_sender_themselves_is_plain_done(self) -> None:
+        self.add_existing()
+        self.llm.answers["ich (Mo) hab das Bad geputzt"] = llm_output(intent="mark_done", chore="Bad putzen", member="Mo")
+        self.assertIn("'Bad putzen' als erledigt markieren", self.send("ich (Mo) hab das Bad geputzt"))
+
+    def test_mark_done_for_unknown_member_changes_nothing(self) -> None:
+        self.add_existing()
+        self.llm.answers["Katrin hat das Bad geputzt"] = llm_output(intent="mark_done", chore="Bad putzen", member="Katrin")
+        self.assertIn("Ich kenne kein Gruppenmitglied namens 'Katrin'", self.send("Katrin hat das Bad geputzt"))
+        self.assertIsNone(self.storage.get_pending_llm_action(SCOPE, SENDER))
+        self.assertEqual(self.done_count("Bad putzen"), 0)
+
+    def test_member_names_reach_the_prompt(self) -> None:
+        messages = llm_assist.build_messages("x", "de", ["Bad putzen"], True, member_names=["Anna", "Mo"])
+        self.assertIn("Group members: Anna, Mo", messages[-1]["content"])
+
     def test_unknown_chore_suggests_and_changes_nothing(self) -> None:
         self.add_existing()
         self.llm.answers["küche ist sauber"] = llm_output(intent="mark_done", chore="Küche")

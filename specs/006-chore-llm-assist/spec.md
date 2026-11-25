@@ -21,14 +21,17 @@ asks before changing anything. Group chatter gets no reply.
 - **FR3** — The request goes to an OpenAI-compatible `/chat/completions` with
   temperature 0, thinking off, and a strict JSON schema: `kind`
   (action / unclear / chatter), `intent`, optional `slots`, `suggestions` and
-  `confidence`. The context sent is the chat language, the chat type and the
-  names of existing chores.
+  `confidence`. The context sent is the chat language, the chat type, the
+  names of existing chores and the display names of the chat's members.
 - **FR4** — Intents: add_chore, add_once, mark_done, undo_done, edit_chore,
   delete_chore, rename_chore, set_name, vacation, show (list, list extended,
   history, my stats, group stats, help, vacation status).
 - **FR5** — Every slot is parsed by the bot's own parsers (schedule, time, chore
   name against the existing list). An unknown chore leads to "which chore do
-  you mean?" with examples. Missing details continue the normal guided setup
+  you mean?" with examples. A `mark_done` can carry a `member` slot ("Katrin
+  hat den Kühlschrank geputzt"): it becomes `done <chore> for <member>` (spec
+  003) and the summary names the member; an unknown name gets the
+  "no member called …" reply and nothing is planned. Missing details continue the normal guided setup
   (spec 003, FR2/FR5) instead of guessing.
 - **FR6** — Actions that change data are summarised ("Did I get that right?")
   and run only after `yes` from the same sender as their next message. Any other

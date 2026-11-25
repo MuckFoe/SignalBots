@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-11-25 – Chore bot: credit a chore to someone else in plain words
+
+### For the groups
+
+Only the chore bot changed; rental and expense groups get no message.
+
+```chores-de
+📢 Neu beim Haushalts-Bot
+
+🙌 Hat jemand anderes eine Aufgabe erledigt, schreibt es einfach so: „Katrin hat den Kühlschrank geputzt“. Der Bot fragt kurz nach („'Kühlschrank putzen' als erledigt von Katrin markieren“), mit ja wird es Katrin gutgeschrieben.
+
+Als Befehl geht es weiterhin: erledigt <Aufgabe> für <Name>
+```
+
+```chores-en
+📢 New in the chore bot
+
+🙌 If someone else did a chore, just say so: "Katrin took out the trash". The bot checks back ("Mark 'Take out the trash' as done by Katrin") and with yes it is credited to Katrin.
+
+As a command it still works too: done <chore> for <name>
+```
+
+### Under the hood
+
+- The LLM schema has a new `member` slot for `mark_done`, and the prompt now
+  lists the chat's member names. The plan becomes `erledigt <chore> für
+  <member>`; an unknown name gets `done_member_not_found` (spec 006 FR5).
+- Found from the `llm_log` of 2026-11-24: "Katrin hat n Kühlschrank geputzt"
+  was read as a plain `mark_done` and the name was dropped.
+- Intent eval: 5 new cases with members; 100 % intent, 99 % slots, no
+  chatter answered. "Asking another person to do something" is now named as
+  chatter in the prompt, because the new examples had made the bot answer
+  "kannst du morgen den müll mitnehmen? @Anna".
+
 ## 2026-11-25 – Chore bot: cold-start notice is back
 
 ### For the groups

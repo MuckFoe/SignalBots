@@ -67,7 +67,8 @@ def run(base_url: str, model: str, cases: list[dict], timeout: float, verbose: b
     for case in cases:
         expect = case["expect"]
         result, raw, latency_ms = llm_assist.interpret(
-            client, case["text"], case["language"], case["chores"], case.get("group", True), case.get("dialogue")
+            client, case["text"], case["language"], case["chores"], case.get("group", True), case.get("dialogue"),
+            member_names=case.get("members"),
         )
         latencies.append(latency_ms)
         if result is None:

@@ -1558,6 +1558,14 @@ class Storage:
             return None
         return row["sender"]
 
+    def member_display_names(self, scope_id: str) -> list[str]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT display_name FROM member_names WHERE scope_id = ? ORDER BY display_name COLLATE NOCASE",
+                (scope_id,),
+            ).fetchall()
+        return [row["display_name"] for row in rows]
+
     def display_name_taken(self, scope_id: str, display_name: str, sender: str) -> bool:
         # A name is only an alias for a sender, so within a group it must point at one person.
         with self._connect() as conn:

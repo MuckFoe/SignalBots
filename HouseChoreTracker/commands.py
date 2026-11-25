@@ -488,6 +488,7 @@ TEXT = {
         "llm_summary_stats_on": "counts in the stats",
         "llm_summary_stats_off": "not counted in the stats",
         "llm_summary_done": "Mark '{name}' as done",
+        "llm_summary_done_for": "Mark '{name}' as done by {member}",
         "llm_summary_undo": "Undo the last 'done' of '{name}'",
         "llm_summary_rename": "Rename '{name}' to '{new_name}'",
         "llm_summary_set_name": "Save your name as '{name}'",
@@ -925,6 +926,7 @@ TEXT = {
         "llm_summary_stats_on": "zählt in der Statistik",
         "llm_summary_stats_off": "zählt nicht in der Statistik",
         "llm_summary_done": "'{name}' als erledigt markieren",
+        "llm_summary_done_for": "'{name}' als erledigt von {member} markieren",
         "llm_summary_undo": "Letztes 'erledigt' von '{name}' zurücknehmen",
         "llm_summary_rename": "'{name}' in '{new_name}' umbenennen",
         "llm_summary_set_name": "Deinen Namen als '{name}' speichern",
@@ -3046,6 +3048,7 @@ _MISSING = object()
 
 _LLM_COMMANDS = {
     "done": {"en": "done {chore}", "de": "erledigt {chore}"},
+    "done_for": {"en": "done {chore} for {member}", "de": "erledigt {chore} für {member}"},
     "undo": {"en": "undo {chore}", "de": "rückgängig {chore}"},
     "rename": {"en": "rename {chore} -> {new_name}", "de": "umbenennen {chore} -> {new_name}"},
     "set_name": {"en": "name {name}", "de": "name {name}"},
@@ -3414,6 +3417,15 @@ def _llm_handle_intent(
             return _llm_which_chore(storage, scope_id, language, command_key), f"{intent}:no_chore"
 
         if intent == "mark_done":
+            member = (slots.get("member") or "").strip()
+            member_sender = storage.sender_by_display_name(scope_id, member) if member else None
+            if member and member_sender is None:
+                return _text(language, "done_member_not_found", name=member), f"{intent}:no_member"
+            if member_sender is not None and member_sender != sender:
+                member = storage.display_name(scope_id, member_sender)
+                plan = {"type": "command", "command": _llm_command(language, "done_for", chore=chore, member=member)}
+                summary = _text(language, "llm_summary_done_for", name=chore, member=member)
+                return _llm_ask_confirm(storage, scope_id, sender, language, intent, plan, summary), intent
             plan = {"type": "command", "command": _llm_command(language, "done", chore=chore)}
             return _llm_ask_confirm(storage, scope_id, sender, language, intent, plan, _text(language, "llm_summary_done", name=chore)), intent
         if intent == "undo_done":
@@ -3499,7 +3511,9 @@ def _llm_fallback(
         return None
     is_group = group_id is not None
     chore_names = [row["name"] for row in storage.list_chores(scope_id)]
-    interpretation, raw, latency_ms = llm_assist.interpret(client, text, language, chore_names, is_group)
+    interpretation, raw, latency_ms = llm_assist.interpret(
+        client, text, language, chore_names, is_group, member_names=storage.member_display_names(scope_id)
+    )
     if interpretation is None:
         _llm_log(storage, scope_id, sender, text, raw, "failed", latency_ms)
         return None
