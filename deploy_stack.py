@@ -85,6 +85,19 @@ def upload_tree(sftp: paramiko.SFTPClient, ssh: paramiko.SSHClient) -> None:
         print(f"uploaded {name}")
 
 
+CONTAINERS = ["signal-api", "whatsapp-api", "bot-router", "chore-bot", "rental-bot", "expense-bot"]
+
+
+def _print_tail(label: str, out: str, err: str, code: int) -> None:
+    safe_out = out.encode("ascii", errors="replace").decode("ascii")
+    print(f"--- {label} ---")
+    print(safe_out[-4000:])
+    if err.strip():
+        print("--- stderr ---")
+        print(err[-2000:])
+    print("exit", code, flush=True)
+
+
 def backup_command(stamp: str) -> str:
     """One throwaway container mounts every bot volume and copies each database under one timestamp.
 
@@ -125,6 +138,7 @@ def ensure_env(ssh: paramiko.SSHClient) -> None:
 
 
 def main() -> None:
+    sys.stdout.reconfigure(line_buffering=True)  # progress shows up even when piped to a file
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(HOST, username=USER, password=PASSWORD, timeout=20)
@@ -140,27 +154,25 @@ def main() -> None:
     print("--- db backup ---")
     print(backup_out.encode("ascii", errors="replace").decode("ascii")[-1500:])
     if code != 0:
-        # Never tear the stack down without a backup.
-        raise SystemExit(f"Backup failed (exit {code}); nothing was stopped.")
+        # Never touch the stack without a backup.
+        raise SystemExit(f"Backup failed (exit {code}); nothing was changed.")
 
-    run(
-        ssh,
-        SU + "'cd /home/signalbot/HouseChoreTracker 2>/dev/null && docker compose down || true; "
-        "docker rm -f signal-api whatsapp-api chore-bot bot-router rental-bot expense-bot grocery-bot 2>/dev/null || true'",
-    )
+    # Build while the old containers keep answering; a failed build leaves the stack as it was.
+    code, out, err = run(ssh, SU + f"'cd {REMOTE_ROOT} && docker compose build'", timeout=1800)
+    _print_tail("build", out, err, code)
+    if code != 0:
+        raise SystemExit(f"Build failed (exit {code}); the running stack was left as it was.")
 
-    deploy_cmd = (
-        SU + ""
-        f"'cd {REMOTE_ROOT} && docker compose build && docker compose up -d'"
-    )
-    code, out, err = run(ssh, deploy_cmd, timeout=600)
-    print("--- build/up ---")
-    safe_out = out.encode("ascii", errors="replace").decode("ascii")
-    print(safe_out[-8000:] if len(safe_out) > 8000 else safe_out)
-    if err.strip():
-        print("--- stderr ---")
-        print(err[-2000:] if len(err) > 2000 else err)
-    print("exit", code)
+    # Recreates only the containers whose image or config changed: seconds of downtime, and
+    # signal-api / whatsapp-api (and with them the messenger links) keep running.
+    code, out, err = run(ssh, SU + f"'cd {REMOTE_ROOT} && docker compose up -d --remove-orphans'", timeout=300)
+    _print_tail("up", out, err, code)
+    if code != 0:
+        # A container with the same name from an older compose project blocks "up". Clear it once.
+        print("up failed; removing stale containers and trying again")
+        run(ssh, SU + f"'docker rm -f {' '.join(CONTAINERS)} 2>/dev/null || true'")
+        code, out, err = run(ssh, SU + f"'cd {REMOTE_ROOT} && docker compose up -d --remove-orphans'", timeout=300)
+        _print_tail("up (retry)", out, err, code)
 
     _, ps_out, _ = run(ssh, SU + "'docker ps --format \"{{.Names}} {{.Status}}\"'")
     print("--- containers ---")
