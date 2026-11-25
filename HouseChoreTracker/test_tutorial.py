@@ -32,7 +32,9 @@ GERMAN_WALKTHROUGH = [
     (ANNA, "urlaub erledigt Kühlschrank leeren"), (ANNA, "urlaub abbrechen"),
     (ANNA, "meine statistik"), (ANNA, "gruppen statistik"), (ANNA, "gruppen statistik aufgabe Bad putzen"),
     (ANNA, "gruppen statistik alle"), (ANNA, "meine statistik diagramm"),
-    (ANNA, "admin hilfe"), (ANNA, "admin ruhezeit 23:00-07:00"), (ANNA, "admin sprache englisch"),
+    (ANNA, "admin hilfe"), (ANNA, "admin ruhezeit 23:00-07:00"),
+    (ANNA, "admin hinzufügen Max"), (ANNA, "admin liste"), (ANNA, "admin entfernen Max"),
+    (ANNA, "admin sprache englisch"),
 ]
 
 ENGLISH_WALKTHROUGH = [
@@ -52,7 +54,9 @@ ENGLISH_WALKTHROUGH = [
     (ANNA, "vacation done empty fridge"), (ANNA, "vacation cancel"),
     (ANNA, "my stats"), (ANNA, "group stats"), (ANNA, "group stats chore clean bathroom"),
     (ANNA, "group stats all"), (ANNA, "my stats chart"),
-    (ANNA, "admin help"), (ANNA, "admin quiet hours 23:00-07:00"), (ANNA, "admin language de"),
+    (ANNA, "admin help"), (ANNA, "admin quiet hours 23:00-07:00"),
+    (ANNA, "admin add Max"), (ANNA, "admin list"), (ANNA, "admin remove Max"),
+    (ANNA, "admin language de"),
 ]
 
 

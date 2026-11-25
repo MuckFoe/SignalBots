@@ -127,10 +127,13 @@ TOPICS = {
         ),
         (
             "Admins and moving the group",
-            "Whoever chose the language during setup is admin. Admin commands start with admin:\n"
+            "Admin commands start with admin:\n"
             "   admin help\n"
             "   admin language de\n"
             "   admin quiet hours 23:00-07:00\n\n"
+            "Whoever chose the language during setup is admin. Only admins can start a move, and they can "
+            "make others admin:\n"
+            "   admin add Anna  ·  admin remove Anna  ·  admin list\n\n"
             "Moving to WhatsApp (or back to Signal):\n"
             "1. An admin writes here: move whatsapp  (or: move signal)\n"
             "2. Create the new group, add the bot and send the code there: move <code>\n"
@@ -239,10 +242,13 @@ TOPICS = {
         ),
         (
             "Admins und Gruppenumzug",
-            "Wer beim Einrichten die Sprache gewählt hat, ist Admin. Admin-Befehle beginnen mit admin:\n"
+            "Admin-Befehle beginnen mit admin:\n"
             "   admin hilfe\n"
             "   admin sprache englisch\n"
             "   admin ruhezeit 23:00-07:00\n\n"
+            "Wer beim Einrichten die Sprache gewählt hat, ist Admin. Nur Admins können einen Umzug starten, "
+            "und sie können andere zu Admins machen:\n"
+            "   admin hinzufügen Anna  ·  admin entfernen Anna  ·  admin liste\n\n"
             "Umzug nach WhatsApp (oder zurück zu Signal):\n"
             "1. Ein Admin schreibt hier: umzug whatsapp  (bzw. umzug signal)\n"
             "2. Neue Gruppe erstellen, Bot hinzufügen und dort den Code senden: umzug <Code>\n"

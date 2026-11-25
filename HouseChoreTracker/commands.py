@@ -120,6 +120,7 @@ TEXT = {
             "- 📊 admin stats\n"
             "- 🔕 admin quiet hours 00:00-08:00\n"
             "- 🔗 admin auth reminder on/off\n"
+            "- 🔑 admin add <name> · admin remove <name> · admin list\n"
             "- 🗑️ admin reset group"
         ),
         "admin_only": "In groups, put admin in front of this command, e.g.: admin language de",
@@ -259,8 +260,19 @@ TEXT = {
         "usage_auth_reminder": "Usage: admin auth reminder on/off",
         "disabled": "disabled",
         "enabled": "enabled",
-        "no_groups": "No groups registered yet.",
-        "groups_header": "Registered groups:",
+        "admin_member_usage": "Usage: admin add <name> · admin remove <name> · admin list",
+        "admin_rights_required": "Only admins can change who is admin. See the admins with: admin list",
+        "admin_member_not_found": (
+            "⚠️ I don't know a group member called '{name}'. "
+            "That person needs to set a name first with: name <name>"
+        ),
+        "admin_added": "🔑 {name} is now an admin of this group.",
+        "admin_already": "{name} is already an admin.",
+        "admin_removed": "{name} is no longer an admin.",
+        "admin_not_an_admin": "{name} is not an admin.",
+        "admin_last": "{name} is the last admin and cannot be removed. Make someone else admin first: admin add <name>",
+        "admin_list": "🔑 Admins of this group:\n{names}",
+        "admin_list_empty": "This group has no admins yet.",
         "current_language": "Current language: English. Change it with: admin language de",
         "language_set_en": "This chat's language is now English.",
         "language_set_de": "This chat's language is now German.",
@@ -544,6 +556,7 @@ TEXT = {
             "- 📊 admin statistik\n"
             "- 🔕 admin ruhezeit 00:00-08:00\n"
             "- 🔗 admin signal erinnerung an/aus\n"
+            "- 🔑 admin hinzufügen <Name> · admin entfernen <Name> · admin liste\n"
             "- 🗑️ admin zurücksetzen"
         ),
         "admin_only": "In Gruppen bitte admin vor diesen Befehl schreiben, z.B.: admin sprache englisch",
@@ -683,8 +696,19 @@ TEXT = {
         "usage_auth_reminder": "So geht's: admin signal erinnerung an/aus",
         "disabled": "deaktiviert",
         "enabled": "aktiviert",
-        "no_groups": "Noch keine Gruppen registriert.",
-        "groups_header": "Registrierte Gruppen:",
+        "admin_member_usage": "So geht's: admin hinzufügen <Name> · admin entfernen <Name> · admin liste",
+        "admin_rights_required": "Nur Admins können ändern, wer Admin ist. Die Admins zeigt: admin liste",
+        "admin_member_not_found": (
+            "⚠️ Ich kenne kein Gruppenmitglied namens '{name}'. "
+            "Die Person muss zuerst einen Namen festlegen mit: name <Name>"
+        ),
+        "admin_added": "🔑 {name} ist jetzt Admin dieser Gruppe.",
+        "admin_already": "{name} ist schon Admin.",
+        "admin_removed": "{name} ist kein Admin mehr.",
+        "admin_not_an_admin": "{name} ist kein Admin.",
+        "admin_last": "{name} ist der letzte Admin und kann nicht entfernt werden. Mach zuerst jemand anderen zum Admin: admin hinzufügen <Name>",
+        "admin_list": "🔑 Admins dieser Gruppe:\n{names}",
+        "admin_list_empty": "Diese Gruppe hat noch keine Admins.",
         "current_language": "Aktuelle Sprache: Deutsch. Ändern mit: admin sprache englisch",
         "language_set_en": "Die Sprache für diesen Chat ist jetzt Englisch.",
         "language_set_de": "Die Sprache für diesen Chat ist jetzt Deutsch.",
@@ -1552,6 +1576,46 @@ def _help_language(storage: Storage, scope_id: str, text: str, current_language:
     return _message_language_hint(text) or current_language
 
 
+_ADMIN_ADD_WORDS = ("add", "hinzufügen", "hinzufuegen")
+_ADMIN_REMOVE_WORDS = ("remove", "entfernen")
+_ADMIN_LIST_WORDS = {"list", "liste", "admins"}
+
+
+def _handle_admin_member_command(storage: Storage, command_text: str, sender: str, scope_id: str, language: str) -> str | None:
+    """admin add/remove <name>, admin list (spec 005 FR12). None if the text is something else."""
+    lowered = command_text.strip().lower()
+    if lowered in _ADMIN_LIST_WORDS:
+        names = [storage.display_name(scope_id, admin) for admin in storage.list_admins(scope_id)]
+        if not names:
+            return _text(language, "admin_list_empty")
+        return _text(language, "admin_list", names="\n".join(f"- {name}" for name in names))
+    parts = command_text.strip().split(maxsplit=1)
+    word = parts[0].lower() if parts else ""
+    if word not in _ADMIN_ADD_WORDS + _ADMIN_REMOVE_WORDS:
+        return None
+    name = parts[1].strip() if len(parts) == 2 else ""
+    if not name:
+        return _text(language, "admin_member_usage")
+    if not storage.is_admin(scope_id, sender):
+        return _text(language, "admin_rights_required")
+    member = storage.sender_by_display_name(scope_id, name)
+    if member is None:
+        return _text(language, "admin_member_not_found", name=name)
+    shown = storage.display_name(scope_id, member)
+    if word in _ADMIN_ADD_WORDS:
+        if storage.is_admin(scope_id, member):
+            return _text(language, "admin_already", name=shown)
+        storage.add_admin(scope_id, member)
+        storage.log_action(scope_id, sender, "add_admin", details=member)
+        return _text(language, "admin_added", name=shown)
+    if not storage.is_admin(scope_id, member):
+        return _text(language, "admin_not_an_admin", name=shown)
+    if not storage.remove_admin(scope_id, member):
+        return _text(language, "admin_last", name=shown)
+    storage.log_action(scope_id, sender, "remove_admin", details=member)
+    return _text(language, "admin_removed", name=shown)
+
+
 def _admin_action(text: str) -> tuple[bool, str]:
     parts = text.strip().split(maxsplit=1)
     if not parts or parts[0].lower() != "admin":
@@ -2091,7 +2155,9 @@ def _format_rename_message(ok: bool, msg: str, old_name: str, new_name: str, lan
 def _action_label(action_type: str, language: str) -> str:
     labels = {
         "en": {
+            "add_admin": "added admin",
             "add_chore": "added chore",
+            "remove_admin": "removed admin",
             "delete_chore": "deleted chore",
             "done": "marked done",
             "rename_chore": "renamed chore",
@@ -2107,7 +2173,9 @@ def _action_label(action_type: str, language: str) -> str:
             "undo_done": "undid completion",
         },
         "de": {
+            "add_admin": "Admin hinzugefügt",
             "add_chore": "Aufgabe hinzugefügt",
+            "remove_admin": "Admin entfernt",
             "delete_chore": "Aufgabe gelöscht",
             "done": "als erledigt gespeichert",
             "rename_chore": "Aufgabe umbenannt",
@@ -3592,6 +3660,11 @@ def handle_command(
     command_text = admin_text if admin_text else text
     command_lowered = command_text.lower()
 
+    if admin_seen:
+        admin_member_reply = _handle_admin_member_command(storage, command_text, sender, scope_id, language)
+        if admin_member_reply is not None:
+            return admin_member_reply
+
     # An LLM yes/no check only takes the next message from the same sender; anything else drops it.
     pending_llm_action = storage.get_pending_llm_action(scope_id, sender)
     if pending_llm_action is not None:
@@ -3706,13 +3779,6 @@ def handle_command(
             end=_format_time(end_minutes),
             timezone=storage.get_timezone(scope_id),
         )
-
-    if command_lowered in {"groups", "gruppen"}:
-        groups = storage.list_groups()
-        if not groups:
-            return _text(language, "no_groups")
-        lines = [f"{idx}. {gid}" for idx, gid in enumerate(groups, start=1)]
-        return _text(language, "groups_header") + "\n" + "\n".join(lines)
 
     if command_lowered in {
         "chores",
