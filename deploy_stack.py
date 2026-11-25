@@ -1,83 +1,58 @@
+"""Deploy the stack to the VM.
+
+    python deploy_stack.py           # upload, back up every database, rebuild and start
+    python deploy_stack.py verify    # read-only: containers, health, recent logs
+    python deploy_stack.py files     # local only: list what a deploy would upload
+"""
+
 import os
+import sys
+from datetime import datetime
 
 import paramiko
 
 from ssh_config import HOST, PASSWORD, REMOTE_ROOT, SU, USER
 LOCAL_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-PROJECTS = {
-    "HouseChoreTracker": [
-        "app.py",
-        "commands.py",
-        "chart_parse.py",
-        "dialogue_utils.py",
-        "stats_charts.py",
-        "storage.py",
-        "schedule_utils.py",
-        "vacation_utils.py",
-        "bot_registry.py",
-        "display_names.py",
-        "docker-compose.yml",
-        "Dockerfile",
-        "evals/export_llm_log.py",
-        "llm_assist.py",
-        "requirements.txt",
-        "scope_migration.py",
-        "signal_client.py",
-        "tutorial.py",
-        "whatsapp_client.py",
-    ],
-    "HouseRentalTracker": [
-        "app.py",
-        "commands.py",
-        "chart_parse.py",
-        "dialogue_utils.py",
-        "stats_charts.py",
-        "storage.py",
-        "scrape_types.py",
-        "scrapers.py",
-        "poller.py",
-        "llm_extract.py",
-        "browser_fetch.py",
-        "drive_time.py",
-        "utils.py",
-        "bot_registry.py",
-        "docker-compose.yml",
-        "Dockerfile",
-        "requirements.txt",
-        "scope_migration.py",
-        "signal_client.py",
-        "whatsapp_client.py",
-    ],
-    "HouseBotRouter": [
-        "app.py",
-        "group_router.py",
-        "identity.py",
-        "migrations.py",
-        "signal_client.py",
-        "whatsapp_client.py",
-        "Dockerfile",
-        "requirements.txt",
-    ],
-    "HouseExpenseTracker": [
-        "app.py",
-        "commands.py",
-        "chart_parse.py",
-        "dialogue_utils.py",
-        "stats_charts.py",
-        "storage.py",
-        "balances.py",
-        "money.py",
-        "display_names.py",
-        "bot_registry.py",
-        "docker-compose.yml",
-        "Dockerfile",
-        "requirements.txt",
-        "scope_migration.py",
-        "signal_client.py",
-        "whatsapp_client.py",
-    ],
-}
+# Every bot directory is uploaded whole (spec 009 FR4), so a new module ships without touching this
+# file. Left out: tests, caches, local secrets and databases, and anything a container never needs.
+PROJECTS = ["HouseChoreTracker", "HouseRentalTracker", "HouseBotRouter", "HouseExpenseTracker"]
+SKIP_DIRS = {"__pycache__", ".venv", "venv", ".pytest_cache", ".mypy_cache"}
+SKIP_FILES = {".env", ".DS_Store"}
+
+
+def _skip_file(name: str) -> bool:
+    return (
+        name in SKIP_FILES
+        or name.startswith("test_")
+        or name.endswith((".pyc", ".tmp", ".log"))
+        or ".db" in name  # chores.db, chores.db-journal, chores.db.bak-…
+    )
+
+
+def upload_files() -> list[str]:
+    """Paths (relative to the repo root, with "/") that a deploy uploads, in a stable order."""
+    files = list(ROOT_FILES)
+    for project in PROJECTS:
+        base = os.path.join(LOCAL_ROOT, project)
+        for folder, dirs, names in os.walk(base):
+            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith("."))
+            for name in sorted(names):
+                if _skip_file(name):
+                    continue
+                rel = os.path.relpath(os.path.join(folder, name), LOCAL_ROOT)
+                files.append(rel.replace(os.sep, "/"))
+    return [name for name in files if os.path.isfile(os.path.join(LOCAL_ROOT, name))]
+
+
+# Volume -> database file inside it. Backed up before the stack goes down (spec 009 FR4).
+DATABASES = [
+    ("housechoretracker_bot-data", "chores.db"),
+    ("rental-bot-data", "rentals.db"),
+    ("router-data", "router.db"),
+    ("expense-bot-data", "expenses.db"),
+]
+
 
 ROOT_FILES = ["docker-compose.yml", "README.md", ".env.example"]
 
@@ -100,23 +75,27 @@ def ensure_remote_dir(sftp: paramiko.SFTPClient, ssh: paramiko.SSHClient, path: 
 
 def upload_tree(sftp: paramiko.SFTPClient, ssh: paramiko.SSHClient) -> None:
     ensure_remote_dir(sftp, ssh, REMOTE_ROOT)
-    for name in ROOT_FILES:
-        local = os.path.join(LOCAL_ROOT, name)
-        if os.path.isfile(local):
-            remote = f"{REMOTE_ROOT}/{name}"
-            sftp.put(local, remote)
-            print(f"uploaded {name}")
+    made: set[str] = set()
+    for name in upload_files():
+        remote_dir = f"{REMOTE_ROOT}/{os.path.dirname(name)}".rstrip("/")
+        if remote_dir not in made:
+            ensure_remote_dir(sftp, ssh, remote_dir)
+            made.add(remote_dir)
+        sftp.put(os.path.join(LOCAL_ROOT, *name.split("/")), f"{REMOTE_ROOT}/{name}")
+        print(f"uploaded {name}")
 
-    for project, files in PROJECTS.items():
-        remote_project = f"{REMOTE_ROOT}/{project}"
-        ensure_remote_dir(sftp, ssh, remote_project)
-        for name in files:
-            local = os.path.join(LOCAL_ROOT, project, name)
-            remote = f"{remote_project}/{name}"
-            if "/" in name:
-                ensure_remote_dir(sftp, ssh, f"{remote_project}/{os.path.dirname(name)}")
-            sftp.put(local, remote)
-            print(f"uploaded {project}/{name}")
+
+def backup_command(stamp: str) -> str:
+    """One throwaway container mounts every bot volume and copies each database under one timestamp.
+
+    No "$" in here: the command passes through two shells (su, then sh in the container)."""
+    mounts = " ".join(f"-v {volume}:/b{index}" for index, (volume, _) in enumerate(DATABASES))
+    copies = "; ".join(
+        f"if [ -f /b{index}/{db} ]; then cp -a /b{index}/{db} /b{index}/{db}.bak-{stamp} && echo backed up {db} || exit 1; "
+        f"else echo no {db}; fi"
+        for index, (_, db) in enumerate(DATABASES)
+    )
+    return SU + f"'docker run --rm {mounts} alpine sh -c \"{copies}\"'"
 
 
 def ensure_env(ssh: paramiko.SSHClient) -> None:
@@ -156,14 +135,13 @@ def main() -> None:
 
     ensure_env(ssh)
 
-    backup_cmd = (
-        SU + ""
-        "'docker run --rm -v housechoretracker_bot-data:/data alpine "
-        "sh -c \"cp -a /data/chores.db /data/chores.db.bak-$(date +%Y%m%d%H%M%S) && ls -la /data\"'"
-    )
-    _, backup_out, _ = run(ssh, backup_cmd, timeout=120)
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    code, backup_out, _ = run(ssh, backup_command(stamp), timeout=120)
     print("--- db backup ---")
     print(backup_out.encode("ascii", errors="replace").decode("ascii")[-1500:])
+    if code != 0:
+        # Never tear the stack down without a backup.
+        raise SystemExit(f"Backup failed (exit {code}); nothing was stopped.")
 
     run(
         ssh,
@@ -201,9 +179,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    import sys
 
-    if len(sys.argv) > 1 and sys.argv[1] == "verify":
+    if len(sys.argv) > 1 and sys.argv[1] == "files":
+        # Local only: what a deploy would upload.
+        print("\n".join(upload_files()))
+    elif len(sys.argv) > 1 and sys.argv[1] == "verify":
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(HOST, username=USER, password=PASSWORD, timeout=20)
